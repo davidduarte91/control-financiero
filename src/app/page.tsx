@@ -1,5 +1,6 @@
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { InvestmentsList } from "@/components/InvestmentsList";
+import { MovementModal } from "@/components/MovementModal";
 import {
   calculateCurrencySummaries,
   calculatePositions,
@@ -14,6 +15,7 @@ export default async function Home() {
   return (
     <main className="p-8">
       <h1 className="mb-6 text-2xl font-bold">Control financiero</h1>
+      <MovementModal />
       <DashboardSummary summaries={currencySummaries} />
       <InvestmentsList positions={positions} />
     </main>

@@ -2,6 +2,7 @@ import type { FinancialMovement } from "./financial-types";
 import { supabase } from "./supabase";
 
 export interface CreateMovementInput {
+  type: FinancialMovement["type"];
   investment: string;
   account: string;
   envelope: string | null;
@@ -26,7 +27,7 @@ export async function getFinancialMovements(): Promise<FinancialMovement[]> {
 }
 
 export async function createContribution(
-  input: CreateMovementInput,
+  input: Omit<CreateMovementInput, "type">,
 ): Promise<FinancialMovement> {
   const { data, error } = await supabase
     .from("financial_movements")
@@ -45,7 +46,7 @@ export async function createContribution(
 }
 
 export async function createWithdrawal(
-  input: CreateMovementInput,
+  input: Omit<CreateMovementInput, "type">,
 ): Promise<FinancialMovement> {
   const { data, error } = await supabase
     .from("financial_movements")
@@ -64,7 +65,7 @@ export async function createWithdrawal(
 }
 
 export async function createValuation(
-  input: CreateMovementInput,
+  input: Omit<CreateMovementInput, "type">,
 ): Promise<FinancialMovement> {
   const { data, error } = await supabase
     .from("financial_movements")
@@ -72,6 +73,35 @@ export async function createValuation(
       ...input,
       type: "valuation",
     })
+    .select("*")
+    .single<FinancialMovement>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+export async function deleteFinancialMovement(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("financial_movements")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function updateFinancialMovement(
+  id: string,
+  input: CreateMovementInput,
+): Promise<FinancialMovement> {
+  const { data, error } = await supabase
+    .from("financial_movements")
+    .update(input)
+    .eq("id", id)
     .select("*")
     .single<FinancialMovement>();
 

@@ -1,5 +1,6 @@
 import { DashboardSummary } from "@/components/DashboardSummary";
 import { InvestmentsList } from "@/components/InvestmentsList";
+import { MovementHistory } from "@/components/MovementHistory";
 import { MovementModal } from "@/components/MovementModal";
 import { RecentActivity } from "@/components/RecentActivity";
 import {
@@ -20,6 +21,7 @@ export default async function Home() {
       <DashboardSummary summaries={currencySummaries} />
       <InvestmentsList positions={positions} />
       <RecentActivity movements={movements} />
+      <MovementHistory movements={movements} />
     </main>
   );
 }

@@ -4,6 +4,7 @@ import {
   calculateContributedCapital,
   calculateCurrencySummaries,
   calculateCurrentValue,
+  calculateEnvelopeSummaries,
   calculatePositions,
   calculateRemainingCapital,
   calculateReturn,
@@ -563,5 +564,91 @@ describe("calculateCurrencySummaries", () => {
 
   it("returns an empty array for an empty list", () => {
     expect(calculateCurrencySummaries([])).toEqual([]);
+  });
+});
+
+describe("calculateEnvelopeSummaries", () => {
+  it("ignores movements without an envelope", () => {
+    const movementsWithoutEnvelope = [
+      createMovement("without-envelope", "contribution", 1_000, "2026-01-01"),
+    ];
+
+    expect(calculateEnvelopeSummaries(movementsWithoutEnvelope)).toEqual([]);
+  });
+
+  it("combines positions from the same envelope by currency", () => {
+    const sameEnvelope = [
+      {
+        ...createMovement("first", "contribution", 1_000, "2026-01-01"),
+        envelope: "Emergency",
+      },
+      {
+        ...createMovement("second", "contribution", 500, "2026-01-02"),
+        investment: "Other Investment",
+        envelope: "Emergency",
+      },
+    ];
+
+    expect(calculateEnvelopeSummaries(sameEnvelope)).toEqual([
+      {
+        envelope: "Emergency",
+        currencySummaries: [
+          {
+            currency: "ARS",
+            remainingCapital: 1_500,
+            currentValue: 1_500,
+            returnAmount: 0,
+            returnPercentage: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps currencies separate within the same envelope", () => {
+    const multipleCurrencies = [
+      {
+        ...createMovement("ars", "contribution", 1_000, "2026-01-01"),
+        envelope: "Travel",
+      },
+      {
+        ...createMovement("usd", "contribution", 100, "2026-01-02"),
+        envelope: "Travel",
+        currency: "USD",
+      },
+    ];
+
+    const [envelope] = calculateEnvelopeSummaries(multipleCurrencies);
+
+    expect(envelope.currencySummaries).toHaveLength(2);
+    expect(envelope.currencySummaries[0]).toMatchObject({
+      currency: "ARS",
+      remainingCapital: 1_000,
+    });
+    expect(envelope.currencySummaries[1]).toMatchObject({
+      currency: "USD",
+      remainingCapital: 100,
+    });
+  });
+
+  it("creates separate summaries for different envelopes", () => {
+    const differentEnvelopes = [
+      {
+        ...createMovement("first", "contribution", 1_000, "2026-01-01"),
+        envelope: "Emergency",
+      },
+      {
+        ...createMovement("second", "contribution", 500, "2026-01-02"),
+        envelope: "Travel",
+      },
+    ];
+
+    const summaries = calculateEnvelopeSummaries(differentEnvelopes);
+
+    expect(summaries).toHaveLength(2);
+    expect(summaries.map((summary) => summary.envelope)).toEqual([
+      "Emergency",
+      "Travel",
+    ]);
   });
 });

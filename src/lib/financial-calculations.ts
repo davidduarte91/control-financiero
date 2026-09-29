@@ -179,3 +179,27 @@ export function calculateCurrencySummaries(movements: FinancialMovement[]) {
     };
   });
 }
+
+export function calculateEnvelopeSummaries(movements: FinancialMovement[]) {
+  const movementsByEnvelope = new Map<string, FinancialMovement[]>();
+
+  for (const movement of movements) {
+    if (movement.envelope === null) {
+      continue;
+    }
+
+    const envelopeMovements = movementsByEnvelope.get(movement.envelope);
+
+    if (envelopeMovements) {
+      envelopeMovements.push(movement);
+      continue;
+    }
+
+    movementsByEnvelope.set(movement.envelope, [movement]);
+  }
+
+  return Array.from(movementsByEnvelope, ([envelope, envelopeMovements]) => ({
+    envelope,
+    currencySummaries: calculateCurrencySummaries(envelopeMovements),
+  }));
+}

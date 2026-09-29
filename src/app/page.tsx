@@ -11,6 +11,8 @@ import {
 } from "@/lib/financial-calculations";
 import { getFinancialMovements } from "@/lib/financial-data";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const movements = await getFinancialMovements();
   const currencySummaries = calculateCurrencySummaries(movements);

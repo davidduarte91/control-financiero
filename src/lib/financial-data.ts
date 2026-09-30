@@ -1,5 +1,7 @@
+import "server-only";
+
 import type { FinancialMovement } from "./financial-types";
-import { supabase } from "./supabase";
+import { getSupabaseServerClient } from "./supabase-server";
 
 export interface CreateMovementInput {
   type: FinancialMovement["type"];
@@ -13,6 +15,7 @@ export interface CreateMovementInput {
 }
 
 export async function getFinancialMovements(): Promise<FinancialMovement[]> {
+  const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("financial_movements")
     .select("*")
@@ -29,6 +32,7 @@ export async function getFinancialMovements(): Promise<FinancialMovement[]> {
 export async function createContribution(
   input: Omit<CreateMovementInput, "type">,
 ): Promise<FinancialMovement> {
+  const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("financial_movements")
     .insert({
@@ -48,6 +52,7 @@ export async function createContribution(
 export async function createWithdrawal(
   input: Omit<CreateMovementInput, "type">,
 ): Promise<FinancialMovement> {
+  const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("financial_movements")
     .insert({
@@ -67,6 +72,7 @@ export async function createWithdrawal(
 export async function createValuation(
   input: Omit<CreateMovementInput, "type">,
 ): Promise<FinancialMovement> {
+  const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("financial_movements")
     .insert({
@@ -84,6 +90,7 @@ export async function createValuation(
 }
 
 export async function deleteFinancialMovement(id: string): Promise<void> {
+  const supabase = getSupabaseServerClient();
   const { error } = await supabase
     .from("financial_movements")
     .delete()
@@ -98,6 +105,7 @@ export async function updateFinancialMovement(
   id: string,
   input: CreateMovementInput,
 ): Promise<FinancialMovement> {
+  const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("financial_movements")
     .update(input)
@@ -110,4 +118,19 @@ export async function updateFinancialMovement(
   }
 
   return data;
+}
+
+export async function renameEnvelope(
+  currentName: string,
+  newName: string,
+): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase
+    .from("financial_movements")
+    .update({ envelope: newName })
+    .eq("envelope", currentName);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }

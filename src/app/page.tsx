@@ -1,9 +1,9 @@
 import { DashboardSummary } from "@/components/DashboardSummary";
+import { DashboardHeader } from "@/components/DashboardHeader";
 import { EnvelopesList } from "@/components/EnvelopesList";
 import { InvestmentsList } from "@/components/InvestmentsList";
 import { MovementHistory } from "@/components/MovementHistory";
 import { MovementModal } from "@/components/MovementModal";
-import { RecentActivity } from "@/components/RecentActivity";
 import {
   calculateCurrencySummaries,
   calculateEnvelopeSummaries,
@@ -20,27 +20,28 @@ export default async function Home() {
   const positions = calculatePositions(movements);
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 sm:px-6 lg:px-8 dark:bg-zinc-950 dark:text-zinc-50">
-      <div className="mx-auto max-w-6xl">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Control financiero
+    <div className="min-h-screen bg-background text-on-surface">
+      <DashboardHeader />
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-8 py-8">
+        <section className="border-b border-surface-high/60 pb-6">
+          <h1 className="text-4xl font-bold tracking-tight text-on-surface">
+            Tu patrimonio, en perspectiva.
           </h1>
-          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-            Resumen de tus inversiones y objetivos
+          <p className="mt-2 max-w-2xl text-sm text-on-surface-muted">
+            Resumen de tus inversiones, movimientos y objetivos financieros.
           </p>
-        </header>
+        </section>
+
         <div className="space-y-10">
           <MovementModal movements={movements} />
           <DashboardSummary summaries={currencySummaries} />
           <div className="grid items-start gap-6 lg:grid-cols-2">
             <EnvelopesList envelopes={envelopeSummaries} />
-            <RecentActivity movements={movements} />
+            <MovementHistory movements={movements} />
           </div>
           <InvestmentsList positions={positions} />
-          <MovementHistory movements={movements} />
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

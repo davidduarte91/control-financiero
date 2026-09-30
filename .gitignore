@@ -20,6 +20,9 @@
 # production
 /build
 
+# local design references
+/stitch-reference/
+
 # misc
 .DS_Store
 *.pem

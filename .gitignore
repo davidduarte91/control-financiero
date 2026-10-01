@@ -23,6 +23,10 @@
 # local design references
 /stitch-reference/
 
+# local agent instruction files
+AGENTS.md
+CLAUDE.md
+
 # misc
 .DS_Store
 *.pem

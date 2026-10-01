@@ -84,6 +84,15 @@ function getUniqueCanonicalValues(
   return [...valuesByKey.values()];
 }
 
+function getCurrentLocalDateTime(): string {
+  const now = new Date();
+  const localTime = new Date(
+    now.getTime() - now.getTimezoneOffset() * 60_000,
+  );
+
+  return localTime.toISOString().slice(0, 16);
+}
+
 export function MovementModal({ movements }: MovementModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -94,12 +103,14 @@ export function MovementModal({ movements }: MovementModalProps) {
     useState<FinancialMovement["type"]>("contribution");
   const [formVersion, setFormVersion] = useState(0);
   const [selectedInvestment, setSelectedInvestment] = useState("");
+  const [defaultOccurredAt, setDefaultOccurredAt] = useState("");
 
   useEffect(() => {
     function handleOpen() {
       setPrefill(null);
       setMovementType("contribution");
       setSelectedInvestment("");
+      setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
       setError(null);
       setIsOpen(true);
@@ -110,6 +121,7 @@ export function MovementModal({ movements }: MovementModalProps) {
       setPrefill(detail);
       setMovementType(detail.type);
       setSelectedInvestment(detail.investment ?? "");
+      setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
       setError(null);
       setIsOpen(true);
@@ -449,6 +461,7 @@ export function MovementModal({ movements }: MovementModalProps) {
               <input
                 name="occurred_at"
                 type="datetime-local"
+                defaultValue={defaultOccurredAt}
                 required
                 className={fieldClass}
               />

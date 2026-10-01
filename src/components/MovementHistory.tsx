@@ -47,6 +47,8 @@ const filters: Array<{ value: MovementFilter; label: string }> = [
   { value: "valuation", label: "Actualizaciones" },
 ];
 
+const collapsedMovementCount = 3;
+
 interface MovementHistoryProps {
   movements: FinancialMovement[];
 }
@@ -74,10 +76,14 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<MovementFilter>("all");
+  const [isExpanded, setIsExpanded] = useState(false);
   const filteredMovements =
     activeFilter === "all"
       ? movements
       : movements.filter((movement) => movement.type === activeFilter);
+  const visibleMovements = isExpanded
+    ? filteredMovements
+    : filteredMovements.slice(0, collapsedMovementCount);
 
   async function handleDelete(id: string) {
     setDeletingId(id);
@@ -213,7 +219,10 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
               <button
                 key={filter.value}
                 type="button"
-                onClick={() => setActiveFilter(filter.value)}
+                onClick={() => {
+                  setActiveFilter(filter.value);
+                  setIsExpanded(false);
+                }}
                 className={`flex-1 rounded-lg px-2 py-1.5 text-xs transition ${
                   isActive
                     ? "bg-surface-highest font-semibold text-on-surface"
@@ -234,7 +243,7 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
       )}
 
       <ul className="max-h-[600px] space-y-2 overflow-y-auto pr-1">
-        {filteredMovements.map((movement) => {
+        {visibleMovements.map((movement) => {
           const typeStyle = movementTypeStyles[movement.type];
 
           return (
@@ -393,6 +402,18 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
           );
         })}
       </ul>
+
+      {filteredMovements.length > collapsedMovementCount && (
+        <div className="mt-4 flex justify-center border-t border-surface-highest/40 pt-4">
+          <button
+            type="button"
+            onClick={() => setIsExpanded((expanded) => !expanded)}
+            className="rounded-lg border border-surface-highest px-4 py-2 text-xs font-semibold text-on-surface-muted transition hover:border-primary/50 hover:text-on-surface"
+          >
+            {isExpanded ? "Ver menos" : "Ver más"}
+          </button>
+        </div>
+      )}
 
       {filteredMovements.length === 0 && (
         <p className="rounded-xl border border-surface-highest/40 bg-surface-container p-5 text-center text-sm text-on-surface-muted">

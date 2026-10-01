@@ -155,6 +155,7 @@ export function InvestmentsList({ positions }: InvestmentsListProps) {
                       dispatchPrefill({
                         ...prefillBase,
                         type: "withdrawal",
+                        withdrawalKind: "capital",
                       })
                     }
                     className="rounded-lg bg-surface-highest px-2 py-2 text-center text-xs font-semibold text-on-surface transition hover:bg-surface-high"

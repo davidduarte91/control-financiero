@@ -8,7 +8,10 @@ import {
   updateMovementAction,
 } from "@/app/actions/financial-actions";
 import { formatCurrency, formatDate } from "@/lib/financial-format";
-import type { FinancialMovement } from "@/lib/financial-types";
+import type {
+  FinancialMovement,
+  WithdrawalKind,
+} from "@/lib/financial-types";
 import { validateWithdrawalAmount } from "@/lib/financial-validation";
 
 const movementTypeLabels: Record<FinancialMovement["type"], string> = {
@@ -77,6 +80,10 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<MovementFilter>("all");
   const [isExpanded, setIsExpanded] = useState(false);
+  const [editingType, setEditingType] =
+    useState<FinancialMovement["type"]>("contribution");
+  const [editingWithdrawalKind, setEditingWithdrawalKind] =
+    useState<WithdrawalKind>("capital");
   const filteredMovements =
     activeFilter === "all"
       ? movements
@@ -146,16 +153,32 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
     const note = String(formData.get("note") ?? "").trim();
     const type = String(formData.get("type")) as FinancialMovement["type"];
     const amount = Number(formData.get("amount"));
+    const withdrawalKind =
+      type === "withdrawal" ? editingWithdrawalKind : null;
+    const movementEnvelope =
+      type === "withdrawal" && editingWithdrawalKind === "return"
+        ? null
+        : envelope || null;
 
     if (type === "withdrawal") {
+      const originalMovement = movements.find((movement) => movement.id === id);
+      const allowCapitalWithoutEnvelope =
+        editingWithdrawalKind === "capital" &&
+        originalMovement?.type === "withdrawal" &&
+        originalMovement.withdrawal_kind !== "return" &&
+        originalMovement.envelope === null &&
+        movementEnvelope === null;
       const withdrawalError = validateWithdrawalAmount(
         movements.filter((movement) => movement.id !== id),
         {
           investment,
           account,
           currency,
+          envelope: movementEnvelope,
+          withdrawalKind: editingWithdrawalKind,
         },
         amount,
+        { allowCapitalWithoutEnvelope },
       );
 
       if (withdrawalError) {
@@ -169,7 +192,8 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
         type,
         investment,
         account,
-        envelope: envelope || null,
+        envelope: movementEnvelope,
+        withdrawal_kind: withdrawalKind,
         currency,
         amount,
         occurred_at: String(formData.get("occurred_at")),
@@ -245,6 +269,12 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
       <ul className="max-h-[600px] space-y-2 overflow-y-auto pr-1">
         {visibleMovements.map((movement) => {
           const typeStyle = movementTypeStyles[movement.type];
+          const movementSource =
+            movement.type === "withdrawal"
+              ? movement.withdrawal_kind === "return"
+                ? "Rendimientos"
+                : movement.envelope ?? "Sin sobre"
+              : movement.envelope;
 
           return (
             <li
@@ -258,12 +288,37 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
                 >
                   <label>
                     Tipo
-                    <select name="type" defaultValue={movement.type}>
+                    <select
+                      name="type"
+                      value={editingType}
+                      onChange={(event) =>
+                        setEditingType(
+                          event.target.value as FinancialMovement["type"],
+                        )
+                      }
+                    >
                       <option value="contribution">Aporte</option>
                       <option value="withdrawal">Retiro</option>
                       <option value="valuation">Actualización de valor</option>
                     </select>
                   </label>
+                  {editingType === "withdrawal" && (
+                    <label>
+                      Origen del retiro
+                      <select
+                        name="withdrawal_kind"
+                        value={editingWithdrawalKind}
+                        onChange={(event) =>
+                          setEditingWithdrawalKind(
+                            event.target.value as WithdrawalKind,
+                          )
+                        }
+                      >
+                        <option value="capital">Capital de un sobre</option>
+                        <option value="return">Rendimientos</option>
+                      </select>
+                    </label>
+                  )}
                   <label>
                     Inversión
                     <input
@@ -280,13 +335,27 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
                       required
                     />
                   </label>
-                  <label>
-                    Sobre
-                    <input
-                      name="envelope"
-                      defaultValue={movement.envelope ?? ""}
-                    />
-                  </label>
+                  {!(
+                    editingType === "withdrawal" &&
+                    editingWithdrawalKind === "return"
+                  ) && (
+                    <label>
+                      Sobre
+                      <input
+                        name="envelope"
+                        defaultValue={movement.envelope ?? ""}
+                        required={
+                          editingType === "withdrawal" &&
+                          editingWithdrawalKind === "capital" &&
+                          !(
+                            movement.type === "withdrawal" &&
+                            movement.withdrawal_kind !== "return" &&
+                            movement.envelope === null
+                          )
+                        }
+                      />
+                    </label>
+                  )}
                   <label>
                     Moneda
                     <input
@@ -355,7 +424,7 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
                     </div>
                     <p className="mt-1 break-words text-xs text-on-surface-muted">
                       {formatDate(movement.occurred_at)} · {movement.account}
-                      {movement.envelope ? ` · ${movement.envelope}` : ""}
+                      {movementSource ? ` · ${movementSource}` : ""}
                     </p>
                     {movement.note && (
                       <p className="mt-1 break-words text-xs text-on-surface-muted">
@@ -375,6 +444,10 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
                         type="button"
                         onClick={() => {
                           setEditingId(movement.id);
+                          setEditingType(movement.type);
+                          setEditingWithdrawalKind(
+                            movement.withdrawal_kind ?? "capital",
+                          );
                           setError(null);
                         }}
                         className="text-[11px] font-semibold text-on-surface-muted transition hover:text-on-surface"

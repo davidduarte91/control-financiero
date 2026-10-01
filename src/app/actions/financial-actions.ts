@@ -102,6 +102,7 @@ async function validateAndNormalizeMovementInput(
       investment,
       account,
       envelope,
+      withdrawal_kind: input.withdrawal_kind,
       currency,
       amount: input.amount,
       occurred_at: occurredAt,
@@ -117,16 +118,27 @@ async function createMovementAction(
 ): Promise<FinancialActionResult> {
   try {
     const validated = await validateAndNormalizeMovementInput(input);
+    const withdrawalKind = validated.input.withdrawal_kind;
+    const normalizedInput = {
+      ...validated.input,
+      withdrawal_kind: type === "withdrawal" ? withdrawalKind : null,
+    };
 
     if (type === "withdrawal") {
+      if (withdrawalKind !== "capital" && withdrawalKind !== "return") {
+        return { success: false, error: "Elegí el origen del retiro." };
+      }
+
       const withdrawalError = validateWithdrawalAmount(
         validated.movements,
         {
-          investment: validated.input.investment,
-          account: validated.input.account,
-          currency: validated.input.currency,
+          investment: normalizedInput.investment,
+          account: normalizedInput.account,
+          currency: normalizedInput.currency,
+          envelope: normalizedInput.envelope,
+          withdrawalKind,
         },
-        validated.input.amount,
+        normalizedInput.amount,
       );
 
       if (withdrawalError) {
@@ -135,11 +147,11 @@ async function createMovementAction(
     }
 
     if (type === "contribution") {
-      await createContribution(validated.input);
+      await createContribution(normalizedInput);
     } else if (type === "withdrawal") {
-      await createWithdrawal(validated.input);
+      await createWithdrawal(normalizedInput);
     } else {
-      await createValuation(validated.input);
+      await createValuation(normalizedInput);
     }
 
     revalidatePath("/");
@@ -184,16 +196,38 @@ export async function updateMovementAction(
     }
 
     const validated = await validateAndNormalizeMovementInput(input);
+    const withdrawalKind = validated.input.withdrawal_kind;
+    const originalMovement = validated.movements.find(
+      (movement) => movement.id === id,
+    );
+    const normalizedInput = {
+      ...validated.input,
+      withdrawal_kind:
+        input.type === "withdrawal" ? withdrawalKind : null,
+    };
 
     if (input.type === "withdrawal") {
+      if (withdrawalKind !== "capital" && withdrawalKind !== "return") {
+        return { success: false, error: "Elegí el origen del retiro." };
+      }
+
+      const allowCapitalWithoutEnvelope =
+        withdrawalKind === "capital" &&
+        originalMovement?.type === "withdrawal" &&
+        originalMovement.withdrawal_kind !== "return" &&
+        originalMovement.envelope === null &&
+        normalizedInput.envelope === null;
       const withdrawalError = validateWithdrawalAmount(
         validated.movements.filter((movement) => movement.id !== id),
         {
-          investment: validated.input.investment,
-          account: validated.input.account,
-          currency: validated.input.currency,
+          investment: normalizedInput.investment,
+          account: normalizedInput.account,
+          currency: normalizedInput.currency,
+          envelope: normalizedInput.envelope,
+          withdrawalKind,
         },
-        validated.input.amount,
+        normalizedInput.amount,
+        { allowCapitalWithoutEnvelope },
       );
 
       if (withdrawalError) {
@@ -202,7 +236,7 @@ export async function updateMovementAction(
     }
 
     await updateFinancialMovement(id, {
-      ...validated.input,
+      ...normalizedInput,
       type: input.type,
     });
     revalidatePath("/");

@@ -1,4 +1,4 @@
-import type { FinancialMovement } from "./financial-types";
+import type { FinancialMovement, WithdrawalKind } from "./financial-types";
 
 export const MOVEMENT_FORM_PREFILL_EVENT = "movement-form:prefill";
 export const MOVEMENT_FORM_OPEN_EVENT = "movement-form:open";
@@ -8,5 +8,6 @@ export interface MovementFormPrefill {
   investment?: string;
   account?: string;
   envelope?: string | null;
+  withdrawalKind?: WithdrawalKind;
   currency?: string;
 }

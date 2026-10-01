@@ -21,6 +21,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    withdrawal_kind: null,
     currency: "ARS",
     amount: 1_000,
     occurred_at: "2026-01-01",
@@ -33,6 +34,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    withdrawal_kind: null,
     currency: "ARS",
     amount: 500,
     occurred_at: "2026-01-02",
@@ -45,6 +47,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    withdrawal_kind: "capital",
     currency: "ARS",
     amount: 300,
     occurred_at: "2026-01-03",
@@ -57,6 +60,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    withdrawal_kind: null,
     currency: "ARS",
     amount: 10_000,
     occurred_at: "2026-01-04",
@@ -77,6 +81,7 @@ function createMovement(
     investment: "Investment",
     account: "Account",
     envelope: null,
+    withdrawal_kind: type === "withdrawal" ? "capital" : null,
     currency: "ARS",
     amount,
     occurred_at: occurredAt,
@@ -608,6 +613,176 @@ describe("calculateCurrencySummaries", () => {
 
   it("returns an empty array for an empty list", () => {
     expect(calculateCurrencySummaries([])).toEqual([]);
+  });
+});
+
+describe("currency isolation", () => {
+  const mixedCurrencyMovements: FinancialMovement[] = [
+    {
+      ...createMovement("ars-contribution", "contribution", 1_000, "2026-01-01"),
+      envelope: "ARS envelope",
+    },
+    createMovement("ars-valuation", "valuation", 1_200, "2026-01-02"),
+    {
+      ...createMovement("usd-contribution", "contribution", 100, "2026-01-01"),
+      currency: "USD",
+      envelope: "USD envelope",
+    },
+    {
+      ...createMovement("usd-valuation", "valuation", 150, "2026-01-02"),
+      currency: "USD",
+    },
+  ];
+
+  it("keeps the same investment and account in separate ARS and USD positions", () => {
+    const positions = calculatePositions(mixedCurrencyMovements);
+
+    expect(positions).toHaveLength(2);
+    expect(positions.find((position) => position.currency === "ARS")).toMatchObject({
+      remainingCapital: 1_000,
+      currentValue: 1_200,
+      returnAmount: 200,
+      returnPercentage: 20,
+    });
+    expect(positions.find((position) => position.currency === "USD")).toMatchObject({
+      remainingCapital: 100,
+      currentValue: 150,
+      returnAmount: 50,
+      returnPercentage: 50,
+    });
+  });
+
+  it("does not let a USD capital withdrawal affect the ARS position", () => {
+    const usdWithdrawal: FinancialMovement = {
+      ...createMovement("usd-withdrawal", "withdrawal", 20, "2026-01-03"),
+      currency: "USD",
+      envelope: "USD envelope",
+      withdrawal_kind: "capital",
+    };
+    const positions = calculatePositions([
+      ...mixedCurrencyMovements,
+      usdWithdrawal,
+    ]);
+    const arsPosition = positions.find((position) => position.currency === "ARS");
+    const usdPosition = positions.find((position) => position.currency === "USD");
+
+    expect(arsPosition).toMatchObject({
+      remainingCapital: 1_000,
+      currentValue: 1_200,
+      returnAmount: 200,
+    });
+    expect(usdPosition).toMatchObject({
+      remainingCapital: 80,
+      currentValue: 130,
+      returnAmount: 50,
+    });
+  });
+
+  it("calculates available return independently for each currency", () => {
+    const positions = calculatePositions([
+      ...mixedCurrencyMovements,
+      {
+        ...createMovement("usd-return", "withdrawal", 10, "2026-01-03"),
+        currency: "USD",
+        withdrawal_kind: "return",
+      },
+    ] as FinancialMovement[]);
+
+    expect(positions.find((position) => position.currency === "ARS")?.returnAmount).toBe(200);
+    expect(positions.find((position) => position.currency === "USD")?.returnAmount).toBe(40);
+  });
+});
+
+describe("withdrawal kinds", () => {
+  const basePosition = [
+    {
+      ...createMovement("contribution", "contribution", 125_000, "2026-01-01"),
+      envelope: "Ahorro David",
+    },
+    createMovement("valuation", "valuation", 145_000, "2026-01-02"),
+  ];
+
+  it("capital withdrawals reduce capital and current value but preserve return", () => {
+    const capitalWithdrawal = {
+      ...createMovement("capital-withdrawal", "withdrawal", 5_000, "2026-01-03"),
+      envelope: "Ahorro David",
+      withdrawal_kind: "capital" as const,
+    };
+    const [position] = calculatePositions([
+      ...basePosition,
+      capitalWithdrawal,
+    ]);
+
+    expect(position.remainingCapital).toBe(120_000);
+    expect(position.currentValue).toBe(140_000);
+    expect(position.returnAmount).toBe(20_000);
+  });
+
+  it("return withdrawals reduce current value and return without reducing capital", () => {
+    const returnWithdrawal = {
+      ...createMovement("return-withdrawal", "withdrawal", 5_000, "2026-01-03"),
+      withdrawal_kind: "return" as const,
+    };
+    const [position] = calculatePositions([
+      ...basePosition,
+      returnWithdrawal,
+    ]);
+
+    expect(position.remainingCapital).toBe(125_000);
+    expect(position.currentValue).toBe(140_000);
+    expect(position.returnAmount).toBe(15_000);
+  });
+
+  it("subtracts multiple return withdrawals from available return", () => {
+    const [position] = calculatePositions([
+      ...basePosition,
+      {
+        ...createMovement("return-1", "withdrawal", 5_000, "2026-01-03"),
+        withdrawal_kind: "return",
+      },
+      {
+        ...createMovement("return-2", "withdrawal", 4_000, "2026-01-04"),
+        withdrawal_kind: "return",
+      },
+    ] as FinancialMovement[]);
+
+    expect(position.remainingCapital).toBe(125_000);
+    expect(position.currentValue).toBe(136_000);
+    expect(position.returnAmount).toBe(11_000);
+  });
+
+  it("accounts for a contribution and return withdrawal after valuation", () => {
+    const [position] = calculatePositions([
+      ...basePosition,
+      {
+        ...createMovement("later-contribution", "contribution", 10_000, "2026-01-03"),
+        envelope: "Ahorro David",
+      },
+      {
+        ...createMovement("return-withdrawal", "withdrawal", 5_000, "2026-01-04"),
+        withdrawal_kind: "return",
+      },
+    ] as FinancialMovement[]);
+
+    expect(position.remainingCapital).toBe(135_000);
+    expect(position.currentValue).toBe(150_000);
+    expect(position.returnAmount).toBe(15_000);
+  });
+
+  it("treats historical withdrawals without a kind as capital", () => {
+    const historicalWithdrawal = {
+      ...createMovement("historical", "withdrawal", 5_000, "2026-01-03"),
+      envelope: null,
+      withdrawal_kind: null,
+    };
+    const [position] = calculatePositions([
+      ...basePosition,
+      historicalWithdrawal,
+    ]);
+
+    expect(position.remainingCapital).toBe(120_000);
+    expect(position.currentValue).toBe(140_000);
+    expect(position.returnAmount).toBe(20_000);
   });
 });
 

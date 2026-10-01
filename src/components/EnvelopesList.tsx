@@ -221,6 +221,7 @@ export function EnvelopesList({ envelopes }: EnvelopesListProps) {
                       onClick={() =>
                         openMovementForm({
                           type: "withdrawal",
+                          withdrawalKind: "capital",
                           envelope: envelope.envelope,
                         })
                       }

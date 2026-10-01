@@ -1,5 +1,9 @@
-import { calculatePositions } from "./financial-calculations";
-import type { FinancialMovement } from "./financial-types";
+import {
+  calculateAvailableReturn,
+  calculateEnvelopeRemainingCapital,
+  calculatePositions,
+} from "./financial-calculations";
+import type { FinancialMovement, WithdrawalKind } from "./financial-types";
 
 interface PositionIdentity {
   investment: string;
@@ -7,20 +11,69 @@ interface PositionIdentity {
   currency: string;
 }
 
+interface WithdrawalIdentity extends PositionIdentity {
+  envelope: string | null;
+  withdrawalKind: WithdrawalKind;
+}
+
+interface WithdrawalValidationOptions {
+  allowCapitalWithoutEnvelope?: boolean;
+}
+
 export const WITHDRAWAL_EXCEEDS_CAPITAL_ERROR =
   "No podés retirar más que el capital restante de esta posición.";
+export const CAPITAL_WITHDRAWAL_REQUIRES_ENVELOPE_ERROR =
+  "Elegí un sobre para retirar capital.";
+export const WITHDRAWAL_EXCEEDS_ENVELOPE_CAPITAL_ERROR =
+  "No podés retirar más que el capital atribuible a este sobre.";
+export const RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR =
+  "Un retiro de rendimientos no puede estar asociado a un sobre.";
+export const WITHDRAWAL_EXCEEDS_RETURN_ERROR =
+  "No podés retirar más que el rendimiento disponible de esta posición.";
 
 export function validateWithdrawalAmount(
   movements: FinancialMovement[],
-  position: PositionIdentity,
+  withdrawal: WithdrawalIdentity,
   amount: number,
+  options: WithdrawalValidationOptions = {},
 ): string | null {
-  const matchingPosition = calculatePositions(movements).find(
-    (candidate) =>
-      candidate.investment === position.investment &&
-      candidate.account === position.account &&
-      candidate.currency === position.currency,
+  const positionMovements = movements.filter(
+    (movement) =>
+      movement.investment === withdrawal.investment &&
+      movement.account === withdrawal.account &&
+      movement.currency === withdrawal.currency,
   );
+
+  if (withdrawal.withdrawalKind === "return") {
+    if (withdrawal.envelope !== null) {
+      return RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR;
+    }
+
+    const availableReturn = calculateAvailableReturn(positionMovements);
+
+    if (availableReturn <= 0 || amount > availableReturn) {
+      return WITHDRAWAL_EXCEEDS_RETURN_ERROR;
+    }
+
+    return null;
+  }
+
+  if (!withdrawal.envelope) {
+    if (!options.allowCapitalWithoutEnvelope) {
+      return CAPITAL_WITHDRAWAL_REQUIRES_ENVELOPE_ERROR;
+    }
+  } else {
+    const envelopeCapital = calculateEnvelopeRemainingCapital(
+      positionMovements,
+      withdrawal.envelope,
+    );
+
+    if (envelopeCapital <= 0 || amount > envelopeCapital) {
+      return WITHDRAWAL_EXCEEDS_ENVELOPE_CAPITAL_ERROR;
+    }
+  }
+
+  const matchingPosition = calculatePositions(positionMovements)[0];
   const remainingCapital = matchingPosition?.remainingCapital ?? 0;
 
   if (remainingCapital <= 0 || amount > remainingCapital) {

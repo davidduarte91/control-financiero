@@ -8,7 +8,10 @@ import {
   createValuationAction,
   createWithdrawalAction,
 } from "@/app/actions/financial-actions";
-import type { FinancialMovement } from "@/lib/financial-types";
+import type {
+  FinancialMovement,
+  WithdrawalKind,
+} from "@/lib/financial-types";
 import { validateWithdrawalAmount } from "@/lib/financial-validation";
 import {
   MOVEMENT_FORM_OPEN_EVENT,
@@ -104,12 +107,15 @@ export function MovementModal({ movements }: MovementModalProps) {
   const [formVersion, setFormVersion] = useState(0);
   const [selectedInvestment, setSelectedInvestment] = useState("");
   const [defaultOccurredAt, setDefaultOccurredAt] = useState("");
+  const [withdrawalKind, setWithdrawalKind] =
+    useState<WithdrawalKind>("capital");
 
   useEffect(() => {
     function handleOpen() {
       setPrefill(null);
       setMovementType("contribution");
       setSelectedInvestment("");
+      setWithdrawalKind("capital");
       setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
       setError(null);
@@ -121,6 +127,7 @@ export function MovementModal({ movements }: MovementModalProps) {
       setPrefill(detail);
       setMovementType(detail.type);
       setSelectedInvestment(detail.investment ?? "");
+      setWithdrawalKind(detail.withdrawalKind ?? "capital");
       setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
       setError(null);
@@ -209,6 +216,12 @@ export function MovementModal({ movements }: MovementModalProps) {
     const amount = Number(formData.get("amount"));
     const occurredAt = String(formData.get("occurred_at") ?? "");
     const note = String(formData.get("note") ?? "").trim();
+    const movementWithdrawalKind =
+      type === "withdrawal" ? withdrawalKind : null;
+    const movementEnvelope =
+      type === "withdrawal" && withdrawalKind === "return"
+        ? null
+        : envelope || null;
 
     if (!investment) {
       setError("La inversión es obligatoria");
@@ -242,6 +255,8 @@ export function MovementModal({ movements }: MovementModalProps) {
           investment,
           account,
           currency,
+          envelope: movementEnvelope,
+          withdrawalKind,
         },
         amount,
       );
@@ -255,7 +270,8 @@ export function MovementModal({ movements }: MovementModalProps) {
     const input = {
       investment,
       account,
-      envelope: envelope || null,
+      envelope: movementEnvelope,
+      withdrawal_kind: movementWithdrawalKind,
       currency,
       amount,
       occurred_at: occurredAt,
@@ -280,6 +296,7 @@ export function MovementModal({ movements }: MovementModalProps) {
       setPrefill(null);
       setMovementType("contribution");
       setSelectedInvestment("");
+      setWithdrawalKind("capital");
       setFormVersion((version) => version + 1);
       setIsOpen(false);
       router.refresh();
@@ -390,6 +407,36 @@ export function MovementModal({ movements }: MovementModalProps) {
             </div>
           </fieldset>
 
+          {movementType === "withdrawal" && (
+            <fieldset className="mt-4">
+              <legend className={labelClass}>Origen del retiro</legend>
+              <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-surface-lowest p-1">
+                <button
+                  type="button"
+                  onClick={() => setWithdrawalKind("capital")}
+                  className={`rounded-lg px-3 py-2 text-xs transition ${
+                    withdrawalKind === "capital"
+                      ? "bg-surface-highest font-bold text-on-surface"
+                      : "font-medium text-on-surface-muted hover:text-on-surface"
+                  }`}
+                >
+                  Capital de un sobre
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWithdrawalKind("return")}
+                  className={`rounded-lg px-3 py-2 text-xs transition ${
+                    withdrawalKind === "return"
+                      ? "bg-primary font-bold text-on-primary"
+                      : "font-medium text-on-surface-muted hover:text-on-surface"
+                  }`}
+                >
+                  Rendimientos
+                </button>
+              </div>
+            </fieldset>
+          )}
+
           <div className="mt-5 grid grid-cols-2 gap-4">
             <label className={labelClass}>
               Inversión
@@ -423,20 +470,26 @@ export function MovementModal({ movements }: MovementModalProps) {
                 ))}
               </datalist>
             </label>
-            <label className={labelClass}>
-              Sobre
-              <input
-                name="envelope"
-                list="movement-envelopes"
-                defaultValue={prefill?.envelope ?? ""}
-                className={fieldClass}
-              />
-              <datalist id="movement-envelopes">
-                {envelopeOptions.map((envelope) => (
-                  <option key={envelope} value={envelope} />
-                ))}
-              </datalist>
-            </label>
+            {!(movementType === "withdrawal" && withdrawalKind === "return") && (
+              <label className={labelClass}>
+                Sobre
+                <input
+                  name="envelope"
+                  list="movement-envelopes"
+                  defaultValue={prefill?.envelope ?? ""}
+                  required={
+                    movementType === "withdrawal" &&
+                    withdrawalKind === "capital"
+                  }
+                  className={fieldClass}
+                />
+                <datalist id="movement-envelopes">
+                  {envelopeOptions.map((envelope) => (
+                    <option key={envelope} value={envelope} />
+                  ))}
+                </datalist>
+              </label>
+            )}
             <label className={labelClass}>
               Moneda
               <input

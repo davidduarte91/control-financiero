@@ -12,7 +12,11 @@ export function calculateWithdrawnCapital(
   movements: FinancialMovement[],
 ): number {
   return movements
-    .filter((movement) => movement.type === "withdrawal")
+    .filter(
+      (movement) =>
+        movement.type === "withdrawal" &&
+        movement.withdrawal_kind !== "return",
+    )
     .reduce((total, movement) => total + movement.amount, 0);
 }
 
@@ -67,6 +71,21 @@ export function calculateCurrentValue(
 export function calculateReturn(movements: FinancialMovement[]): number {
   return (
     calculateCurrentValue(movements) - calculateRemainingCapital(movements)
+  );
+}
+
+export function calculateAvailableReturn(
+  movements: FinancialMovement[],
+): number {
+  return Math.max(calculateReturn(movements), 0);
+}
+
+export function calculateEnvelopeRemainingCapital(
+  movements: FinancialMovement[],
+  envelope: string,
+): number {
+  return calculateRemainingCapital(
+    movements.filter((movement) => movement.envelope === envelope),
   );
 }
 

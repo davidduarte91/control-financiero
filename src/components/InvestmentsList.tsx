@@ -61,7 +61,6 @@ export function InvestmentsList({ positions }: InvestmentsListProps) {
               position.investment,
               position.account,
               position.currency,
-              position.envelope,
             ]);
             const returnColor =
               position.returnAmount > 0
@@ -72,7 +71,6 @@ export function InvestmentsList({ positions }: InvestmentsListProps) {
             const prefillBase = {
               investment: position.investment,
               account: position.account,
-              envelope: position.envelope,
               currency: position.currency,
             };
 
@@ -92,7 +90,6 @@ export function InvestmentsList({ positions }: InvestmentsListProps) {
                       </h3>
                       <p className="mt-1 break-words text-xs text-on-surface-muted">
                         {position.account}
-                        {position.envelope ? ` · ${position.envelope}` : ""}
                       </p>
                     </div>
                   </div>

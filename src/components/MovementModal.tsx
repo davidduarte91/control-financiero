@@ -229,7 +229,6 @@ export function MovementModal({ movements }: MovementModalProps) {
         {
           investment,
           account,
-          envelope: envelope || null,
           currency,
         },
         amount,

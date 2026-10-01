@@ -87,7 +87,6 @@ export function groupMovementsByPosition(
 ): Array<{
   investment: string;
   account: string;
-  envelope: string | null;
   currency: string;
   movements: FinancialMovement[];
 }> {
@@ -96,7 +95,6 @@ export function groupMovementsByPosition(
     {
       investment: string;
       account: string;
-      envelope: string | null;
       currency: string;
       movements: FinancialMovement[];
     }
@@ -107,7 +105,6 @@ export function groupMovementsByPosition(
       movement.investment,
       movement.account,
       movement.currency,
-      movement.envelope,
     ]);
     const existingGroup = groups.get(key);
 
@@ -119,7 +116,6 @@ export function groupMovementsByPosition(
     groups.set(key, {
       investment: movement.investment,
       account: movement.account,
-      envelope: movement.envelope,
       currency: movement.currency,
       movements: [movement],
     });
@@ -132,7 +128,6 @@ export function calculatePositions(movements: FinancialMovement[]) {
   return groupMovementsByPosition(movements).map((group) => ({
     investment: group.investment,
     account: group.account,
-    envelope: group.envelope,
     currency: group.currency,
     contributedCapital: calculateContributedCapital(group.movements),
     withdrawnCapital: calculateWithdrawnCapital(group.movements),

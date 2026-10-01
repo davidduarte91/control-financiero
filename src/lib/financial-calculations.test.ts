@@ -253,7 +253,6 @@ describe("groupMovementsByPosition", () => {
     expect(groups[0]).toEqual({
       investment: "Investment",
       account: "Account",
-      envelope: null,
       currency: "ARS",
       movements: samePosition,
     });
@@ -283,7 +282,7 @@ describe("groupMovementsByPosition", () => {
     expect(groupMovementsByPosition(differentCurrencies)).toHaveLength(2);
   });
 
-  it("creates separate groups for different envelopes", () => {
+  it("groups different envelopes into the same position", () => {
     const differentEnvelopes = [
       {
         ...createMovement("first", "contribution", 1_000, "2026-01-01"),
@@ -295,7 +294,10 @@ describe("groupMovementsByPosition", () => {
       },
     ];
 
-    expect(groupMovementsByPosition(differentEnvelopes)).toHaveLength(2);
+    const groups = groupMovementsByPosition(differentEnvelopes);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].movements).toEqual(differentEnvelopes);
   });
 
   it("groups null envelopes together", () => {
@@ -307,7 +309,6 @@ describe("groupMovementsByPosition", () => {
     const groups = groupMovementsByPosition(nullEnvelopes);
 
     expect(groups).toHaveLength(1);
-    expect(groups[0].envelope).toBeNull();
     expect(groups[0].movements).toHaveLength(2);
   });
 
@@ -342,7 +343,6 @@ describe("calculatePositions", () => {
       {
         investment: "Investment",
         account: "Account",
-        envelope: null,
         currency: "ARS",
         contributedCapital: 1_300,
         withdrawnCapital: 100,
@@ -426,6 +426,50 @@ describe("calculatePositions", () => {
 
     expect(position.currentValue).toBe(1_350);
     expect(position.returnAmount).toBe(250);
+  });
+
+  it("uses one total valuation for a position funded by multiple envelopes", () => {
+    const positionWithMultipleEnvelopes = [
+      {
+        ...createMovement("first-contribution", "contribution", 120_000, "2026-01-01"),
+        envelope: "Ahorro David",
+      },
+      {
+        ...createMovement("second-contribution", "contribution", 10_000, "2026-01-02"),
+        envelope: "Mantenimiento auto",
+      },
+      {
+        ...createMovement("older-valuation", "valuation", 140_000, "2026-01-03"),
+        envelope: "Ahorro David",
+      },
+      {
+        ...createMovement("latest-valuation", "valuation", 150_000, "2026-01-04"),
+        envelope: null,
+      },
+      {
+        ...createMovement("later-contribution", "contribution", 5_000, "2026-01-05"),
+        envelope: "Mantenimiento auto",
+      },
+      {
+        ...createMovement("later-withdrawal", "withdrawal", 20_000, "2026-01-06"),
+        envelope: "Ahorro David",
+      },
+    ];
+
+    const positions = calculatePositions(positionWithMultipleEnvelopes);
+
+    expect(positions).toHaveLength(1);
+    expect(positions[0]).toMatchObject({
+      investment: "Investment",
+      account: "Account",
+      currency: "ARS",
+      contributedCapital: 135_000,
+      withdrawnCapital: 20_000,
+      remainingCapital: 115_000,
+      currentValue: 135_000,
+      returnAmount: 20_000,
+    });
+    expect(positions[0].returnPercentage).toBeCloseTo(17.3913043478);
   });
 
   it("returns a null percentage when remaining capital is zero", () => {

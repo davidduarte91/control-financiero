@@ -124,7 +124,6 @@ async function createMovementAction(
         {
           investment: validated.input.investment,
           account: validated.input.account,
-          envelope: validated.input.envelope,
           currency: validated.input.currency,
         },
         validated.input.amount,
@@ -192,7 +191,6 @@ export async function updateMovementAction(
         {
           investment: validated.input.investment,
           account: validated.input.account,
-          envelope: validated.input.envelope,
           currency: validated.input.currency,
         },
         validated.input.amount,

@@ -4,7 +4,6 @@ import type { FinancialMovement } from "./financial-types";
 interface PositionIdentity {
   investment: string;
   account: string;
-  envelope: string | null;
   currency: string;
 }
 
@@ -20,7 +19,6 @@ export function validateWithdrawalAmount(
     (candidate) =>
       candidate.investment === position.investment &&
       candidate.account === position.account &&
-      candidate.envelope === position.envelope &&
       candidate.currency === position.currency,
   );
   const remainingCapital = matchingPosition?.remainingCapital ?? 0;

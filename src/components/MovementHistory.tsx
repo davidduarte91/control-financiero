@@ -147,7 +147,6 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
         {
           investment,
           account,
-          envelope: envelope || null,
           currency,
         },
         amount,

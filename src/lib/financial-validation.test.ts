@@ -31,24 +31,39 @@ const movements: FinancialMovement[] = [
     note: null,
     created_at: "2026-01-02T10:00:00",
   },
+  {
+    id: "3",
+    type: "contribution",
+    investment: "Fondo A",
+    account: "Cuenta 1",
+    envelope: "Viaje",
+    currency: "ARS",
+    amount: 500,
+    occurred_at: "2026-01-03T10:00:00",
+    note: null,
+    created_at: "2026-01-03T10:00:00",
+  },
 ];
 
 const position = {
   investment: "Fondo A",
   account: "Cuenta 1",
-  envelope: "Emergencia",
   currency: "ARS",
 };
 
 describe("validateWithdrawalAmount", () => {
   it("allows withdrawing up to the remaining capital", () => {
-    expect(validateWithdrawalAmount(movements, position, 800)).toBeNull();
+    expect(validateWithdrawalAmount(movements, position, 1_300)).toBeNull();
   });
 
   it("rejects an amount above the remaining capital", () => {
-    expect(validateWithdrawalAmount(movements, position, 801)).toBe(
+    expect(validateWithdrawalAmount(movements, position, 1_301)).toBe(
       WITHDRAWAL_EXCEEDS_CAPITAL_ERROR,
     );
+  });
+
+  it("uses the total position capital across different envelopes", () => {
+    expect(validateWithdrawalAmount(movements, position, 1_100)).toBeNull();
   });
 
   it("rejects a withdrawal when the position does not exist", () => {

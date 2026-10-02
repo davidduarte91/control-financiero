@@ -4,6 +4,7 @@ import {
   calculateContributedCapital,
   calculateCurrencySummaries,
   calculateCurrentValue,
+  calculateEnvelopeRemainingCapital,
   calculateEnvelopeSummaries,
   calculatePositions,
   calculateRemainingCapital,
@@ -21,6 +22,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    envelope_id: null,
     withdrawal_kind: null,
     currency: "ARS",
     amount: 1_000,
@@ -34,6 +36,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    envelope_id: null,
     withdrawal_kind: null,
     currency: "ARS",
     amount: 500,
@@ -47,6 +50,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    envelope_id: null,
     withdrawal_kind: "capital",
     currency: "ARS",
     amount: 300,
@@ -60,6 +64,7 @@ const movements: FinancialMovement[] = [
     investment: "Investment",
     account: "Account",
     envelope: null,
+    envelope_id: null,
     withdrawal_kind: null,
     currency: "ARS",
     amount: 10_000,
@@ -81,6 +86,7 @@ function createMovement(
     investment: "Investment",
     account: "Account",
     envelope: null,
+    envelope_id: null,
     withdrawal_kind: type === "withdrawal" ? "capital" : null,
     currency: "ARS",
     amount,
@@ -869,5 +875,25 @@ describe("calculateEnvelopeSummaries", () => {
       "Emergency",
       "Travel",
     ]);
+  });
+});
+
+describe("legacy envelope compatibility", () => {
+  it("keeps movements with envelope text and no envelope id attributable", () => {
+    const legacyMovements = [
+      {
+        ...createMovement("legacy", "contribution", 750, "2026-01-01"),
+        envelope: "Sobre histórico",
+        envelope_id: null,
+      },
+    ];
+
+    expect(
+      calculateEnvelopeRemainingCapital(
+        legacyMovements,
+        "Sobre histórico",
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    ).toBe(750);
   });
 });

@@ -24,6 +24,7 @@ function movement(
     investment: "Fondo A",
     account: "Cuenta 1",
     envelope,
+    envelope_id: null,
     withdrawal_kind: withdrawalKind,
     currency: "ARS",
     amount,

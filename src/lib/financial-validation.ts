@@ -13,6 +13,7 @@ interface PositionIdentity {
 
 interface WithdrawalIdentity extends PositionIdentity {
   envelope: string | null;
+  envelopeId?: string | null;
   withdrawalKind: WithdrawalKind;
 }
 
@@ -45,7 +46,7 @@ export function validateWithdrawalAmount(
   );
 
   if (withdrawal.withdrawalKind === "return") {
-    if (withdrawal.envelope !== null) {
+    if (withdrawal.envelope !== null || withdrawal.envelopeId) {
       return RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR;
     }
 
@@ -66,6 +67,7 @@ export function validateWithdrawalAmount(
     const envelopeCapital = calculateEnvelopeRemainingCapital(
       positionMovements,
       withdrawal.envelope,
+      withdrawal.envelopeId,
     );
 
     if (envelopeCapital <= 0 || amount > envelopeCapital) {

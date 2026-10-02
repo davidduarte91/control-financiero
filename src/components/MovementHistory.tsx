@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/financial-actions";
 import { formatCurrency, formatDate } from "@/lib/financial-format";
 import type {
+  Envelope,
   FinancialMovement,
   WithdrawalKind,
 } from "@/lib/financial-types";
@@ -54,6 +55,7 @@ const collapsedMovementCount = 3;
 
 interface MovementHistoryProps {
   movements: FinancialMovement[];
+  envelopes: Envelope[];
 }
 
 function findExistingSpelling(
@@ -73,7 +75,7 @@ function findExistingSpelling(
   return existingValue ?? value;
 }
 
-export function MovementHistory({ movements }: MovementHistoryProps) {
+export function MovementHistory({ movements, envelopes }: MovementHistoryProps) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -84,6 +86,7 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
     useState<FinancialMovement["type"]>("contribution");
   const [editingWithdrawalKind, setEditingWithdrawalKind] =
     useState<WithdrawalKind>("capital");
+  const [editingCurrency, setEditingCurrency] = useState("");
   const filteredMovements =
     activeFilter === "all"
       ? movements
@@ -130,9 +133,6 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
     const normalizedAccount = String(formData.get("account") ?? "")
       .trim()
       .replace(/\s+/g, " ");
-    const normalizedEnvelope = String(formData.get("envelope") ?? "")
-      .trim()
-      .replace(/\s+/g, " ");
     const investment = findExistingSpelling(
       normalizedInvestment,
       movements.map((movement) => movement.investment),
@@ -141,12 +141,7 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
       normalizedAccount,
       movements.map((movement) => movement.account),
     );
-    const envelope = normalizedEnvelope
-      ? findExistingSpelling(
-          normalizedEnvelope,
-          movements.map((movement) => movement.envelope),
-        )
-      : "";
+    const envelopeId = String(formData.get("envelope_id") ?? "").trim();
     const currency = String(formData.get("currency") ?? "")
       .trim()
       .toUpperCase();
@@ -155,19 +150,29 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
     const amount = Number(formData.get("amount"));
     const withdrawalKind =
       type === "withdrawal" ? editingWithdrawalKind : null;
-    const movementEnvelope =
-      type === "withdrawal" && editingWithdrawalKind === "return"
-        ? null
-        : envelope || null;
+    const movementUsesEnvelope =
+      type === "contribution" ||
+      (type === "withdrawal" && editingWithdrawalKind === "capital");
+    const selectedEnvelope = movementUsesEnvelope
+      ? envelopes.find((envelope) => envelope.id === envelopeId) ?? null
+      : null;
+    const movementEnvelopeId = movementUsesEnvelope ? envelopeId || null : null;
+    const movementEnvelope = selectedEnvelope?.name ?? null;
+
+    if (movementUsesEnvelope && !selectedEnvelope) {
+      setError("Elegí un sobre activo para este movimiento.");
+      return;
+    }
+
+    if (
+      selectedEnvelope &&
+      selectedEnvelope.currency.toUpperCase() !== currency
+    ) {
+      setError("La moneda del sobre no coincide con la moneda del movimiento.");
+      return;
+    }
 
     if (type === "withdrawal") {
-      const originalMovement = movements.find((movement) => movement.id === id);
-      const allowCapitalWithoutEnvelope =
-        editingWithdrawalKind === "capital" &&
-        originalMovement?.type === "withdrawal" &&
-        originalMovement.withdrawal_kind !== "return" &&
-        originalMovement.envelope === null &&
-        movementEnvelope === null;
       const withdrawalError = validateWithdrawalAmount(
         movements.filter((movement) => movement.id !== id),
         {
@@ -175,10 +180,10 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
           account,
           currency,
           envelope: movementEnvelope,
+          envelopeId: movementEnvelopeId,
           withdrawalKind: editingWithdrawalKind,
         },
         amount,
-        { allowCapitalWithoutEnvelope },
       );
 
       if (withdrawalError) {
@@ -192,7 +197,7 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
         type,
         investment,
         account,
-        envelope: movementEnvelope,
+        envelope_id: movementEnvelopeId,
         withdrawal_kind: withdrawalKind,
         currency,
         amount,
@@ -335,25 +340,31 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
                       required
                     />
                   </label>
-                  {!(
-                    editingType === "withdrawal" &&
-                    editingWithdrawalKind === "return"
+                  {(
+                    editingType === "contribution" ||
+                    (editingType === "withdrawal" &&
+                      editingWithdrawalKind === "capital")
                   ) && (
                     <label>
                       Sobre
-                      <input
-                        name="envelope"
-                        defaultValue={movement.envelope ?? ""}
-                        required={
-                          editingType === "withdrawal" &&
-                          editingWithdrawalKind === "capital" &&
-                          !(
-                            movement.type === "withdrawal" &&
-                            movement.withdrawal_kind !== "return" &&
-                            movement.envelope === null
+                      <select
+                        name="envelope_id"
+                        defaultValue={movement.envelope_id ?? ""}
+                        required
+                      >
+                        <option value="">Seleccionar sobre</option>
+                        {envelopes
+                          .filter(
+                            (envelope) =>
+                              envelope.currency.toUpperCase() ===
+                              editingCurrency.toUpperCase(),
                           )
-                        }
-                      />
+                          .map((envelope) => (
+                            <option key={envelope.id} value={envelope.id}>
+                              {envelope.name} — {envelope.currency}
+                            </option>
+                          ))}
+                      </select>
                     </label>
                   )}
                   <label>
@@ -361,6 +372,7 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
                     <input
                       name="currency"
                       defaultValue={movement.currency}
+                      onChange={(event) => setEditingCurrency(event.target.value)}
                       required
                     />
                   </label>
@@ -448,6 +460,7 @@ export function MovementHistory({ movements }: MovementHistoryProps) {
                           setEditingWithdrawalKind(
                             movement.withdrawal_kind ?? "capital",
                           );
+                          setEditingCurrency(movement.currency);
                           setError(null);
                         }}
                         className="text-[11px] font-semibold text-on-surface-muted transition hover:text-on-surface"

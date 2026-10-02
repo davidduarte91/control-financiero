@@ -9,6 +9,7 @@ import {
   createWithdrawalAction,
 } from "@/app/actions/financial-actions";
 import type {
+  Envelope,
   FinancialMovement,
   WithdrawalKind,
 } from "@/lib/financial-types";
@@ -21,6 +22,7 @@ import {
 
 interface MovementModalProps {
   movements: FinancialMovement[];
+  envelopes: Envelope[];
 }
 
 const movementTypes: Array<{
@@ -96,7 +98,7 @@ function getCurrentLocalDateTime(): string {
   return localTime.toISOString().slice(0, 16);
 }
 
-export function MovementModal({ movements }: MovementModalProps) {
+export function MovementModal({ movements, envelopes }: MovementModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,6 +108,7 @@ export function MovementModal({ movements }: MovementModalProps) {
     useState<FinancialMovement["type"]>("contribution");
   const [formVersion, setFormVersion] = useState(0);
   const [selectedInvestment, setSelectedInvestment] = useState("");
+  const [selectedCurrency, setSelectedCurrency] = useState("");
   const [defaultOccurredAt, setDefaultOccurredAt] = useState("");
   const [withdrawalKind, setWithdrawalKind] =
     useState<WithdrawalKind>("capital");
@@ -115,6 +118,7 @@ export function MovementModal({ movements }: MovementModalProps) {
       setPrefill(null);
       setMovementType("contribution");
       setSelectedInvestment("");
+      setSelectedCurrency("");
       setWithdrawalKind("capital");
       setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
@@ -127,6 +131,7 @@ export function MovementModal({ movements }: MovementModalProps) {
       setPrefill(detail);
       setMovementType(detail.type);
       setSelectedInvestment(detail.investment ?? "");
+      setSelectedCurrency(detail.currency ?? "");
       setWithdrawalKind(detail.withdrawalKind ?? "capital");
       setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
@@ -193,9 +198,6 @@ export function MovementModal({ movements }: MovementModalProps) {
     const normalizedAccount = String(formData.get("account") ?? "")
       .trim()
       .replace(/\s+/g, " ");
-    const normalizedEnvelope = String(formData.get("envelope") ?? "")
-      .trim()
-      .replace(/\s+/g, " ");
     const investment = findExistingSpelling(
       normalizedInvestment,
       movements.map((movement) => movement.investment),
@@ -204,12 +206,7 @@ export function MovementModal({ movements }: MovementModalProps) {
       normalizedAccount,
       movements.map((movement) => movement.account),
     );
-    const envelope = normalizedEnvelope
-      ? findExistingSpelling(
-          normalizedEnvelope,
-          movements.map((movement) => movement.envelope),
-        )
-      : "";
+    const envelopeId = String(formData.get("envelope_id") ?? "").trim();
     const currency = String(formData.get("currency") ?? "")
       .trim()
       .toUpperCase();
@@ -218,10 +215,14 @@ export function MovementModal({ movements }: MovementModalProps) {
     const note = String(formData.get("note") ?? "").trim();
     const movementWithdrawalKind =
       type === "withdrawal" ? withdrawalKind : null;
-    const movementEnvelope =
-      type === "withdrawal" && withdrawalKind === "return"
-        ? null
-        : envelope || null;
+    const movementUsesEnvelope =
+      type === "contribution" ||
+      (type === "withdrawal" && withdrawalKind === "capital");
+    const selectedEnvelope = movementUsesEnvelope
+      ? envelopes.find((envelope) => envelope.id === envelopeId) ?? null
+      : null;
+    const movementEnvelopeId = movementUsesEnvelope ? envelopeId || null : null;
+    const movementEnvelope = selectedEnvelope?.name ?? null;
 
     if (!investment) {
       setError("La inversión es obligatoria");
@@ -235,6 +236,19 @@ export function MovementModal({ movements }: MovementModalProps) {
 
     if (!currency) {
       setError("La moneda es obligatoria");
+      return;
+    }
+
+    if (movementUsesEnvelope && !selectedEnvelope) {
+      setError("Elegí un sobre activo para este movimiento.");
+      return;
+    }
+
+    if (
+      selectedEnvelope &&
+      selectedEnvelope.currency.toUpperCase() !== currency
+    ) {
+      setError("La moneda del sobre no coincide con la moneda del movimiento.");
       return;
     }
 
@@ -256,6 +270,7 @@ export function MovementModal({ movements }: MovementModalProps) {
           account,
           currency,
           envelope: movementEnvelope,
+          envelopeId: movementEnvelopeId,
           withdrawalKind,
         },
         amount,
@@ -270,7 +285,7 @@ export function MovementModal({ movements }: MovementModalProps) {
     const input = {
       investment,
       account,
-      envelope: movementEnvelope,
+      envelope_id: movementEnvelopeId,
       withdrawal_kind: movementWithdrawalKind,
       currency,
       amount,
@@ -296,6 +311,7 @@ export function MovementModal({ movements }: MovementModalProps) {
       setPrefill(null);
       setMovementType("contribution");
       setSelectedInvestment("");
+      setSelectedCurrency("");
       setWithdrawalKind("capital");
       setFormVersion((version) => version + 1);
       setIsOpen(false);
@@ -334,10 +350,12 @@ export function MovementModal({ movements }: MovementModalProps) {
     ...associatedMovements.map((movement) => movement.account),
     ...movements.map((movement) => movement.account),
   ]);
-  const envelopeOptions = getUniqueCanonicalValues([
-    ...associatedMovements.map((movement) => movement.envelope),
-    ...movements.map((movement) => movement.envelope),
-  ]);
+  const availableEnvelopes = selectedCurrency
+    ? envelopes.filter(
+        (envelope) =>
+          envelope.currency.toUpperCase() === selectedCurrency.toUpperCase(),
+      )
+    : envelopes;
 
   return (
     <div
@@ -470,24 +488,25 @@ export function MovementModal({ movements }: MovementModalProps) {
                 ))}
               </datalist>
             </label>
-            {!(movementType === "withdrawal" && withdrawalKind === "return") && (
+            {(
+              movementType === "contribution" ||
+              (movementType === "withdrawal" && withdrawalKind === "capital")
+            ) && (
               <label className={labelClass}>
                 Sobre
-                <input
-                  name="envelope"
-                  list="movement-envelopes"
-                  defaultValue={prefill?.envelope ?? ""}
-                  required={
-                    movementType === "withdrawal" &&
-                    withdrawalKind === "capital"
-                  }
+                <select
+                  name="envelope_id"
+                  defaultValue={prefill?.envelopeId ?? ""}
+                  required
                   className={fieldClass}
-                />
-                <datalist id="movement-envelopes">
-                  {envelopeOptions.map((envelope) => (
-                    <option key={envelope} value={envelope} />
+                >
+                  <option value="">Seleccionar sobre</option>
+                  {availableEnvelopes.map((envelope) => (
+                    <option key={envelope.id} value={envelope.id}>
+                      {envelope.name} — {envelope.currency}
+                    </option>
                   ))}
-                </datalist>
+                </select>
               </label>
             )}
             <label className={labelClass}>
@@ -495,6 +514,7 @@ export function MovementModal({ movements }: MovementModalProps) {
               <input
                 name="currency"
                 defaultValue={prefill?.currency ?? ""}
+                onChange={(event) => setSelectedCurrency(event.target.value)}
                 required
                 className={`${fieldClass} font-mono`}
               />

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { getEnvelopeById } from "@/lib/envelope-data";
 import {
   createContribution,
   createValuation,
@@ -14,12 +15,18 @@ import {
 } from "@/lib/financial-data";
 import type { FinancialMovement } from "@/lib/financial-types";
 import { validateWithdrawalAmount } from "@/lib/financial-validation";
+import {
+  MOVEMENT_ENVELOPE_NOT_FOUND_ERROR,
+  movementRequiresEnvelope,
+  resolveMovementEnvelope,
+} from "@/lib/movement-envelope";
 
 export type FinancialActionResult =
   | { success: true }
   | { success: false; error: string };
 
-type MovementActionInput = Omit<CreateMovementInput, "type">;
+type MovementActionInput = Omit<CreateMovementInput, "type" | "envelope">;
+type UpdateMovementActionInput = Omit<CreateMovementInput, "envelope">;
 
 const movementTypes: FinancialMovement["type"][] = [
   "contribution",
@@ -50,13 +57,14 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 async function validateAndNormalizeMovementInput(
+  type: FinancialMovement["type"],
   input: MovementActionInput,
-): Promise<{ input: MovementActionInput; movements: FinancialMovement[] }> {
+): Promise<{
+  input: Omit<CreateMovementInput, "type">;
+  movements: FinancialMovement[];
+}> {
   const normalizedInvestment = normalizeText(input.investment);
   const normalizedAccount = normalizeText(input.account);
-  const normalizedEnvelope = input.envelope
-    ? normalizeText(input.envelope)
-    : "";
   const currency = normalizeText(input.currency).toUpperCase();
   const occurredAt = normalizeText(input.occurred_at);
   const note = input.note ? input.note.trim() : null;
@@ -90,18 +98,38 @@ async function validateAndNormalizeMovementInput(
     normalizedAccount,
     movements.map((movement) => movement.account),
   );
-  const envelope = normalizedEnvelope
-    ? findExistingSpelling(
-        normalizedEnvelope,
-        movements.map((movement) => movement.envelope),
-      )
-    : null;
+  const requiresEnvelope = movementRequiresEnvelope(
+    type,
+    input.withdrawal_kind,
+  );
+  const envelopeId = input.envelope_id?.trim() || null;
+  const isUuid =
+    envelopeId !== null &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      envelopeId,
+    );
+
+  if (requiresEnvelope && envelopeId && !isUuid) {
+    throw new Error(MOVEMENT_ENVELOPE_NOT_FOUND_ERROR);
+  }
+
+  const selectedEnvelope =
+    requiresEnvelope && envelopeId && isUuid
+      ? await getEnvelopeById(envelopeId)
+      : null;
+  const envelopeAssociation = resolveMovementEnvelope({
+    type,
+    withdrawalKind: input.withdrawal_kind,
+    envelopeId,
+    currency,
+    envelope: selectedEnvelope,
+  });
 
   return {
     input: {
       investment,
       account,
-      envelope,
+      ...envelopeAssociation,
       withdrawal_kind: input.withdrawal_kind,
       currency,
       amount: input.amount,
@@ -117,7 +145,7 @@ async function createMovementAction(
   input: MovementActionInput,
 ): Promise<FinancialActionResult> {
   try {
-    const validated = await validateAndNormalizeMovementInput(input);
+    const validated = await validateAndNormalizeMovementInput(type, input);
     const withdrawalKind = validated.input.withdrawal_kind;
     const normalizedInput = {
       ...validated.input,
@@ -136,6 +164,7 @@ async function createMovementAction(
           account: normalizedInput.account,
           currency: normalizedInput.currency,
           envelope: normalizedInput.envelope,
+          envelopeId: normalizedInput.envelope_id,
           withdrawalKind,
         },
         normalizedInput.amount,
@@ -184,7 +213,7 @@ export async function createValuationAction(
 
 export async function updateMovementAction(
   id: string,
-  input: CreateMovementInput,
+  input: UpdateMovementActionInput,
 ): Promise<FinancialActionResult> {
   try {
     if (!id.trim()) {
@@ -195,11 +224,8 @@ export async function updateMovementAction(
       throw new Error("El tipo de movimiento es inválido");
     }
 
-    const validated = await validateAndNormalizeMovementInput(input);
+    const validated = await validateAndNormalizeMovementInput(input.type, input);
     const withdrawalKind = validated.input.withdrawal_kind;
-    const originalMovement = validated.movements.find(
-      (movement) => movement.id === id,
-    );
     const normalizedInput = {
       ...validated.input,
       withdrawal_kind:
@@ -211,12 +237,6 @@ export async function updateMovementAction(
         return { success: false, error: "Elegí el origen del retiro." };
       }
 
-      const allowCapitalWithoutEnvelope =
-        withdrawalKind === "capital" &&
-        originalMovement?.type === "withdrawal" &&
-        originalMovement.withdrawal_kind !== "return" &&
-        originalMovement.envelope === null &&
-        normalizedInput.envelope === null;
       const withdrawalError = validateWithdrawalAmount(
         validated.movements.filter((movement) => movement.id !== id),
         {
@@ -224,10 +244,10 @@ export async function updateMovementAction(
           account: normalizedInput.account,
           currency: normalizedInput.currency,
           envelope: normalizedInput.envelope,
+          envelopeId: normalizedInput.envelope_id,
           withdrawalKind,
         },
         normalizedInput.amount,
-        { allowCapitalWithoutEnvelope },
       );
 
       if (withdrawalError) {

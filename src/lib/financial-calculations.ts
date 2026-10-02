@@ -83,9 +83,16 @@ export function calculateAvailableReturn(
 export function calculateEnvelopeRemainingCapital(
   movements: FinancialMovement[],
   envelope: string,
+  envelopeId?: string | null,
 ): number {
   return calculateRemainingCapital(
-    movements.filter((movement) => movement.envelope === envelope),
+    movements.filter((movement) => {
+      if (envelopeId && movement.envelope_id !== null) {
+        return movement.envelope_id === envelopeId;
+      }
+
+      return movement.envelope === envelope;
+    }),
   );
 }
 

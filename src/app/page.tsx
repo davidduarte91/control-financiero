@@ -6,17 +6,19 @@ import { MovementHistory } from "@/components/MovementHistory";
 import { MovementModal } from "@/components/MovementModal";
 import {
   calculateCurrencySummaries,
-  calculateEnvelopeSummaries,
   calculatePositions,
 } from "@/lib/financial-calculations";
+import { getEnvelopes } from "@/lib/envelope-data";
 import { getFinancialMovements } from "@/lib/financial-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const movements = await getFinancialMovements();
+  const [movements, envelopes] = await Promise.all([
+    getFinancialMovements(),
+    getEnvelopes(),
+  ]);
   const currencySummaries = calculateCurrencySummaries(movements);
-  const envelopeSummaries = calculateEnvelopeSummaries(movements);
   const positions = calculatePositions(movements);
 
   return (
@@ -33,11 +35,11 @@ export default async function Home() {
         </section>
 
         <div className="space-y-10">
-          <MovementModal movements={movements} />
+          <MovementModal movements={movements} envelopes={envelopes} />
           <DashboardSummary summaries={currencySummaries} />
           <div className="grid items-start gap-6 lg:grid-cols-2">
-            <EnvelopesList envelopes={envelopeSummaries} />
-            <MovementHistory movements={movements} />
+            <EnvelopesList envelopes={envelopes} />
+            <MovementHistory movements={movements} envelopes={envelopes} />
           </div>
           <InvestmentsList positions={positions} />
         </div>

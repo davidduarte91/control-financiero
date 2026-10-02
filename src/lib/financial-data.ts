@@ -8,6 +8,7 @@ export interface CreateMovementInput {
   investment: string;
   account: string;
   envelope: string | null;
+  envelope_id: string | null;
   withdrawal_kind: FinancialMovement["withdrawal_kind"];
   currency: string;
   amount: number;

@@ -7,7 +7,7 @@ export interface MovementFormPrefill {
   type: FinancialMovement["type"];
   investment?: string;
   account?: string;
-  envelope?: string | null;
+  envelopeId?: string | null;
   withdrawalKind?: WithdrawalKind;
   currency?: string;
 }

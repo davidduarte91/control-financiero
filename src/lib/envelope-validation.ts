@@ -4,8 +4,6 @@ export const ENVELOPE_NAME_REQUIRED_ERROR =
   "El nombre del sobre es obligatorio.";
 export const ENVELOPE_CURRENCY_REQUIRED_ERROR =
   "La moneda del sobre es obligatoria.";
-export const ENVELOPE_BALANCE_INVALID_ERROR =
-  "El saldo inicial debe ser un número mayor o igual a 0.";
 export const ENVELOPE_ALREADY_EXISTS_ERROR =
   "Ya existe un sobre activo con ese nombre y moneda.";
 
@@ -23,13 +21,8 @@ export function normalizeCreateEnvelopeInput(
     throw new Error(ENVELOPE_CURRENCY_REQUIRED_ERROR);
   }
 
-  if (!Number.isFinite(input.balance) || input.balance < 0) {
-    throw new Error(ENVELOPE_BALANCE_INVALID_ERROR);
-  }
-
   return {
     name,
     currency,
-    balance: input.balance,
   };
 }

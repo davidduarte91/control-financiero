@@ -44,7 +44,6 @@ export interface Envelope {
 export interface CreateEnvelopeInput {
   name: string;
   currency: string;
-  balance: number;
 }
 
 export interface FinancialMovement {

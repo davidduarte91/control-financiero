@@ -43,7 +43,10 @@ export async function createEnvelope(
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("envelopes")
-    .insert(input)
+    .insert({
+      ...input,
+      balance: 0,
+    })
     .select("id, name, currency, balance, created_at, updated_at, archived_at")
     .single<Envelope>();
 

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  ENVELOPE_BALANCE_INVALID_ERROR,
   ENVELOPE_CURRENCY_REQUIRED_ERROR,
   ENVELOPE_NAME_REQUIRED_ERROR,
   normalizeCreateEnvelopeInput,
@@ -13,23 +12,24 @@ describe("normalizeCreateEnvelopeInput", () => {
       normalizeCreateEnvelopeInput({
         name: "  Fondo   de emergencia ",
         currency: " ars ",
-        balance: 1_250.5,
       }),
     ).toEqual({
       name: "Fondo de emergencia",
       currency: "ARS",
-      balance: 1_250.5,
     });
   });
 
-  it("accepts an initial balance of zero", () => {
-    expect(
-      normalizeCreateEnvelopeInput({
-        name: "Nuevo objetivo",
-        currency: "USD",
-        balance: 0,
-      }).balance,
-    ).toBe(0);
+  it("returns only the fields required to create an empty envelope", () => {
+    const result = normalizeCreateEnvelopeInput({
+      name: "Nuevo objetivo",
+      currency: "USD",
+    });
+
+    expect(result).toEqual({
+      name: "Nuevo objetivo",
+      currency: "USD",
+    });
+    expect(result).not.toHaveProperty("balance");
   });
 
   it("rejects an empty name", () => {
@@ -37,7 +37,6 @@ describe("normalizeCreateEnvelopeInput", () => {
       normalizeCreateEnvelopeInput({
         name: "   ",
         currency: "ARS",
-        balance: 0,
       }),
     ).toThrow(ENVELOPE_NAME_REQUIRED_ERROR);
   });
@@ -47,21 +46,7 @@ describe("normalizeCreateEnvelopeInput", () => {
       normalizeCreateEnvelopeInput({
         name: "Objetivo",
         currency: "  ",
-        balance: 0,
       }),
     ).toThrow(ENVELOPE_CURRENCY_REQUIRED_ERROR);
   });
-
-  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
-    "rejects an invalid balance: %s",
-    (balance) => {
-      expect(() =>
-        normalizeCreateEnvelopeInput({
-          name: "Objetivo",
-          currency: "ARS",
-          balance,
-        }),
-      ).toThrow(ENVELOPE_BALANCE_INVALID_ERROR);
-    },
-  );
 });

@@ -60,12 +60,6 @@ export function EnvelopesList({ envelopes }: EnvelopesListProps) {
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const balance = Number(formData.get("balance"));
-
-    if (!Number.isFinite(balance) || balance < 0) {
-      setError("El saldo inicial debe ser un número mayor o igual a 0.");
-      return;
-    }
 
     setIsSubmitting(true);
 
@@ -73,7 +67,6 @@ export function EnvelopesList({ envelopes }: EnvelopesListProps) {
       const result = await createEnvelopeAction({
         name: String(formData.get("name") ?? ""),
         currency: String(formData.get("currency") ?? ""),
-        balance,
       });
 
       if (!result.success) {
@@ -202,24 +195,12 @@ export function EnvelopesList({ envelopes }: EnvelopesListProps) {
                     className={fieldClass}
                   />
                 </label>
-                <label className={labelClass}>
+                <label className={`col-span-2 ${labelClass}`}>
                   Moneda
                   <input
                     name="currency"
                     required
                     className={`${fieldClass} font-mono uppercase`}
-                  />
-                </label>
-                <label className={labelClass}>
-                  Saldo inicial
-                  <input
-                    name="balance"
-                    type="number"
-                    min="0"
-                    step="any"
-                    defaultValue="0"
-                    required
-                    className={`${fieldClass} font-mono`}
                   />
                 </label>
               </div>

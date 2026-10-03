@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 
 import {
   deleteMovementAction,
+  revertObjectiveExitAction,
   updateMovementAction,
 } from "@/app/actions/financial-actions";
 import { formatCurrency, formatDate } from "@/lib/financial-format";
@@ -118,6 +119,38 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
         deletionError instanceof Error
           ? deletionError.message
           : "No se pudo eliminar el movimiento",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleObjectiveExitReversal(movement: FinancialMovement) {
+    const confirmed = window.confirm(
+      `Se restaurará ${formatCurrency(movement.amount, movement.currency)} en la posición ${movement.investment} / ${movement.account}, se restaurará el saldo del sobre y se eliminará este retiro de capital del historial. ¿Querés continuar?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(movement.id);
+    setError(null);
+
+    try {
+      const result = await revertObjectiveExitAction(movement.id);
+
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+
+      router.refresh();
+    } catch (reversalError) {
+      setError(
+        reversalError instanceof Error
+          ? reversalError.message
+          : "No se pudo revertir la salida de capital.",
       );
     } finally {
       setDeletingId(null);
@@ -372,6 +405,16 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
                     <p className="mt-1 font-mono text-[11px] text-on-surface-muted">
                       {movement.currency}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => handleObjectiveExitReversal(movement)}
+                      disabled={deletingId === movement.id}
+                      className="mt-2 text-[11px] font-semibold text-danger transition disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deletingId === movement.id
+                        ? "Revirtiendo..."
+                        : "Revertir"}
+                    </button>
                   </div>
                 </div>
               </li>

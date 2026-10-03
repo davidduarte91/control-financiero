@@ -12,6 +12,7 @@ import {
   registerNewCapital,
   renameEnvelope,
   revertNewCapital,
+  revertObjectiveExit,
   updateFinancialMovement,
   withdrawObjectiveCapital,
   withdrawInvestmentReturn,
@@ -44,6 +45,13 @@ const movementTypes: FinancialMovement["type"][] = [
   "withdrawal",
   "valuation",
 ];
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
 
 function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, " ");
@@ -196,18 +204,14 @@ async function validateAndNormalizeMovementInput(
     input.withdrawal_kind,
   );
   const envelopeId = input.envelope_id?.trim() || null;
-  const isUuid =
-    envelopeId !== null &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      envelopeId,
-    );
+  const hasValidEnvelopeId = envelopeId !== null && isUuid(envelopeId);
 
-  if (requiresEnvelope && envelopeId && !isUuid) {
+  if (requiresEnvelope && envelopeId && !hasValidEnvelopeId) {
     throw new Error(MOVEMENT_ENVELOPE_NOT_FOUND_ERROR);
   }
 
   const selectedEnvelope =
-    requiresEnvelope && envelopeId && isUuid
+    requiresEnvelope && envelopeId && hasValidEnvelopeId
       ? await getEnvelopeById(envelopeId)
       : null;
   const envelopeAssociation = resolveMovementEnvelope({
@@ -438,6 +442,30 @@ export async function deleteMovementAction(
     return {
       success: false,
       error: getErrorMessage(error, "No se pudo eliminar el movimiento"),
+    };
+  }
+}
+
+export async function revertObjectiveExitAction(
+  movementId: string,
+): Promise<FinancialActionResult> {
+  try {
+    const normalizedMovementId = movementId.trim();
+
+    if (!isUuid(normalizedMovementId)) {
+      throw new Error("El movimiento es inválido.");
+    }
+
+    await revertObjectiveExit(normalizedMovementId);
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: getErrorMessage(
+        error,
+        "No se pudo revertir la salida de capital.",
+      ),
     };
   }
 }

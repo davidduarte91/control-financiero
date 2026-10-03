@@ -258,6 +258,23 @@ export async function revertNewCapital(
   return data;
 }
 
+export async function revertObjectiveExit(
+  movementId: string,
+): Promise<FinancialMovement> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .rpc("revert_objective_exit", {
+      p_movement_id: movementId,
+    })
+    .single<FinancialMovement>();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
 export async function updateFinancialMovement(
   id: string,
   input: CreateMovementInput,

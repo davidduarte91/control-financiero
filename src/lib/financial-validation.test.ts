@@ -282,7 +282,7 @@ describe("getMovementDeletionMode", () => {
     ).toBe("unsupported");
   });
 
-  it("does not allow individual deletion or reversal of objective exits", () => {
+  it("keeps objective exits blocked from generic deletion", () => {
     expect(
       getMovementDeletionMode({
         ...movements[0],

@@ -20,7 +20,9 @@ import {
 import type { FinancialMovement } from "@/lib/financial-types";
 import {
   getMovementDeletionMode,
+  validateNewWithdrawalKind,
   validateReallocateCapitalInput,
+  validateCapitalWithdrawalUpdate,
   getMovementEditError,
   validateWithdrawObjectiveCapitalInput,
   validateWithdrawalAmount,
@@ -236,6 +238,16 @@ async function createMovementAction(
   type: FinancialMovement["type"],
   input: MovementActionInput,
 ): Promise<FinancialActionResult> {
+  if (type === "withdrawal") {
+    const withdrawalKindError = validateNewWithdrawalKind(
+      input.withdrawal_kind,
+    );
+
+    if (withdrawalKindError) {
+      return { success: false, error: withdrawalKindError };
+    }
+  }
+
   try {
     const validated = await validateAndNormalizeMovementInput(type, input);
     const withdrawalKind = validated.input.withdrawal_kind;
@@ -245,8 +257,11 @@ async function createMovementAction(
     };
 
     if (type === "withdrawal") {
-      if (withdrawalKind !== "capital" && withdrawalKind !== "return") {
-        return { success: false, error: "Elegí el origen del retiro." };
+      if (withdrawalKind !== "return") {
+        return {
+          success: false,
+          error: "Para retirar capital del objetivo, usá la acción “Retirar capital”.",
+        };
       }
 
       const withdrawalError = validateWithdrawalAmount(
@@ -278,7 +293,10 @@ async function createMovementAction(
         note: normalizedInput.note,
       });
     } else if (type === "withdrawal") {
-      await createWithdrawal(normalizedInput);
+      await createWithdrawal({
+        ...normalizedInput,
+        withdrawal_kind: "return",
+      });
     } else {
       await createValuation(normalizedInput);
     }
@@ -337,6 +355,16 @@ export async function updateMovementAction(
 
     if (movementEditError) {
       throw new Error(movementEditError);
+    }
+
+    const capitalWithdrawalUpdateError = validateCapitalWithdrawalUpdate(
+      originalMovement,
+      input.type,
+      input.withdrawal_kind,
+    );
+
+    if (capitalWithdrawalUpdateError) {
+      throw new Error(capitalWithdrawalUpdateError);
     }
 
     const withdrawalKind = validated.input.withdrawal_kind;

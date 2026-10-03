@@ -36,6 +36,22 @@ export const RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR =
   "Un retiro de rendimientos no puede estar asociado a un sobre.";
 export const WITHDRAWAL_EXCEEDS_RETURN_ERROR =
   "No podés retirar más que el rendimiento disponible de esta posición.";
+export const CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR =
+  "Para retirar capital del objetivo, usá la acción “Retirar capital”.";
+
+export function validateNewWithdrawalKind(
+  withdrawalKind: WithdrawalKind | null,
+): string | null {
+  if (withdrawalKind === "capital") {
+    return CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR;
+  }
+
+  if (withdrawalKind !== "return") {
+    return "Elegí el origen del retiro.";
+  }
+
+  return null;
+}
 
 export function validateWithdrawObjectiveCapitalInput(
   input: WithdrawObjectiveCapitalInput,
@@ -161,6 +177,26 @@ export function getMovementEditError(
   }
 
   return "Las redistribuciones no se pueden editar individualmente.";
+}
+
+export function validateCapitalWithdrawalUpdate(
+  originalMovement: FinancialMovement,
+  nextType: FinancialMovement["type"],
+  nextWithdrawalKind: FinancialMovement["withdrawal_kind"],
+): string | null {
+  if (
+    nextType === "withdrawal" &&
+    nextWithdrawalKind === "capital" &&
+    !(
+      originalMovement.type === "withdrawal" &&
+      originalMovement.withdrawal_kind === "capital" &&
+      originalMovement.capital_flow_kind === null
+    )
+  ) {
+    return CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR;
+  }
+
+  return null;
 }
 
 export function validateWithdrawalAmount(

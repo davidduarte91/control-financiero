@@ -3,6 +3,7 @@
 import type { calculatePositions } from "@/lib/financial-calculations";
 import { formatCurrency, formatPercentage } from "@/lib/financial-format";
 import {
+  OBJECTIVE_EXIT_FORM_OPEN_EVENT,
   MOVEMENT_FORM_PREFILL_EVENT,
   type MovementFormPrefill,
 } from "@/lib/movement-form-prefill";
@@ -152,15 +153,13 @@ export function InvestmentsList({ positions }: InvestmentsListProps) {
                   <button
                     type="button"
                     onClick={() =>
-                      dispatchPrefill({
-                        ...prefillBase,
-                        type: "withdrawal",
-                        withdrawalKind: "capital",
-                      })
+                      window.dispatchEvent(
+                        new Event(OBJECTIVE_EXIT_FORM_OPEN_EVENT),
+                      )
                     }
                     className="rounded-lg bg-surface-highest px-2 py-2 text-center text-xs font-semibold text-on-surface transition hover:bg-surface-high"
                   >
-                    Retirar
+                    Retirar capital
                   </button>
                   <button
                     type="button"

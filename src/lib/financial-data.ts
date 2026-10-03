@@ -156,7 +156,9 @@ export async function registerNewCapital(
 }
 
 export async function createWithdrawal(
-  input: Omit<CreateMovementInput, "type">,
+  input: Omit<CreateMovementInput, "type" | "withdrawal_kind"> & {
+    withdrawal_kind: "return";
+  },
 ): Promise<FinancialMovement> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase

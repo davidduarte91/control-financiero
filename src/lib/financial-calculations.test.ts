@@ -169,6 +169,56 @@ describe("financial calculations", () => {
     expect(calculateRemainingCapital(movements)).toBe(1_200);
   });
 
+  it("continues calculating historical capital withdrawals without a flow kind", () => {
+    const historicalWithdrawal = movements.find(
+      (movement) => movement.id === "withdrawal-1",
+    );
+
+    expect(historicalWithdrawal?.capital_flow_kind).toBeNull();
+    expect(calculateRemainingCapital(movements)).toBe(1_200);
+  });
+
+  it("counts objective exits as withdrawals of capital", () => {
+    const objectiveExit = {
+      ...createMovement("objective-exit", "withdrawal", 300, "2026-01-02"),
+      capital_flow_kind: "objective_exit" as const,
+    };
+
+    expect(
+      calculateRemainingCapital([
+        createMovement("contribution", "contribution", 1_000, "2026-01-01"),
+        objectiveExit,
+      ]),
+    ).toBe(700);
+  });
+
+  it("keeps reallocation capital within the total capital calculation", () => {
+    const sourceContribution = createMovement(
+      "source-contribution",
+      "contribution",
+      1_000,
+      "2026-01-01",
+    );
+    const reallocationWithdrawal = {
+      ...createMovement("reallocation-out", "withdrawal", 250, "2026-01-02"),
+      capital_flow_kind: "reallocation" as const,
+      operation_id: "operation-1",
+    };
+    const reallocationContribution = {
+      ...createMovement("reallocation-in", "contribution", 250, "2026-01-02"),
+      capital_flow_kind: "reallocation" as const,
+      operation_id: "operation-1",
+    };
+
+    expect(
+      calculateRemainingCapital([
+        sourceContribution,
+        reallocationWithdrawal,
+        reallocationContribution,
+      ]),
+    ).toBe(1_000);
+  });
+
   it("ignores valuations in every calculation", () => {
     const valuations = movements.filter(
       (movement) => movement.type === "valuation",

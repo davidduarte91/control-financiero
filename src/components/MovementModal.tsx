@@ -11,7 +11,6 @@ import {
 import type {
   Envelope,
   FinancialMovement,
-  WithdrawalKind,
 } from "@/lib/financial-types";
 import { validateWithdrawalAmount } from "@/lib/financial-validation";
 import {
@@ -110,16 +109,12 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
   const [selectedInvestment, setSelectedInvestment] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState("");
   const [defaultOccurredAt, setDefaultOccurredAt] = useState("");
-  const [withdrawalKind, setWithdrawalKind] =
-    useState<WithdrawalKind>("capital");
-
   useEffect(() => {
     function handleOpen() {
       setPrefill(null);
       setMovementType("contribution");
       setSelectedInvestment("");
       setSelectedCurrency("");
-      setWithdrawalKind("capital");
       setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
       setError(null);
@@ -132,7 +127,6 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
       setMovementType(detail.type);
       setSelectedInvestment(detail.investment ?? "");
       setSelectedCurrency(detail.currency ?? "");
-      setWithdrawalKind(detail.withdrawalKind ?? "capital");
       setDefaultOccurredAt(getCurrentLocalDateTime());
       setFormVersion((version) => version + 1);
       setError(null);
@@ -213,11 +207,9 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
     const amount = Number(formData.get("amount"));
     const occurredAt = String(formData.get("occurred_at") ?? "");
     const note = String(formData.get("note") ?? "").trim();
-    const movementWithdrawalKind =
-      type === "withdrawal" ? withdrawalKind : null;
-    const movementUsesEnvelope =
-      type === "contribution" ||
-      (type === "withdrawal" && withdrawalKind === "capital");
+    const movementWithdrawalKind: FinancialMovement["withdrawal_kind"] =
+      type === "withdrawal" ? "return" : null;
+    const movementUsesEnvelope = type === "contribution";
     const selectedEnvelope = movementUsesEnvelope
       ? envelopes.find((envelope) => envelope.id === envelopeId) ?? null
       : null;
@@ -271,7 +263,7 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
           currency,
           envelope: movementEnvelope,
           envelopeId: movementEnvelopeId,
-          withdrawalKind,
+          withdrawalKind: "return",
         },
         amount,
       );
@@ -312,7 +304,6 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
       setMovementType("contribution");
       setSelectedInvestment("");
       setSelectedCurrency("");
-      setWithdrawalKind("capital");
       setFormVersion((version) => version + 1);
       setIsOpen(false);
       router.refresh();
@@ -433,33 +424,10 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
           )}
 
           {movementType === "withdrawal" && (
-            <fieldset className="mt-4">
-              <legend className={labelClass}>Origen del retiro</legend>
-              <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-surface-lowest p-1">
-                <button
-                  type="button"
-                  onClick={() => setWithdrawalKind("capital")}
-                  className={`rounded-lg px-3 py-2 text-xs transition ${
-                    withdrawalKind === "capital"
-                      ? "bg-surface-highest font-bold text-on-surface"
-                      : "font-medium text-on-surface-muted hover:text-on-surface"
-                  }`}
-                >
-                  Capital de un sobre
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWithdrawalKind("return")}
-                  className={`rounded-lg px-3 py-2 text-xs transition ${
-                    withdrawalKind === "return"
-                      ? "bg-primary font-bold text-on-primary"
-                      : "font-medium text-on-surface-muted hover:text-on-surface"
-                  }`}
-                >
-                  Rendimientos
-                </button>
-              </div>
-            </fieldset>
+            <p className="mt-3 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs text-on-surface-muted">
+              Este retiro corresponde únicamente a rendimientos. Para retirar
+              capital del objetivo, usá la acción “Retirar capital”.
+            </p>
           )}
 
           <div className="mt-5 grid grid-cols-2 gap-4">
@@ -495,10 +463,7 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
                 ))}
               </datalist>
             </label>
-            {(
-              movementType === "contribution" ||
-              (movementType === "withdrawal" && withdrawalKind === "capital")
-            ) && (
+            {movementType === "contribution" && (
               <label className={labelClass}>
                 Sobre
                 <select

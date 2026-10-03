@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type { FinancialMovement } from "./financial-types";
 import {
+  CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR,
   CAPITAL_WITHDRAWAL_REQUIRES_ENVELOPE_ERROR,
   getMovementDeletionMode,
   getMovementEditError,
   RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR,
+  validateCapitalWithdrawalUpdate,
   validateReallocateCapitalInput,
+  validateNewWithdrawalKind,
   validateWithdrawObjectiveCapitalInput,
   validateWithdrawalAmount,
   WITHDRAWAL_EXCEEDS_CAPITAL_ERROR,
@@ -75,6 +78,59 @@ const validObjectiveExit = {
   occurredAt: "2026-10-03T10:00",
   note: null,
 };
+
+describe("validateNewWithdrawalKind", () => {
+  it("allows new return withdrawals", () => {
+    expect(validateNewWithdrawalKind("return")).toBeNull();
+  });
+
+  it("rejects legacy capital withdrawals and directs to objective exit", () => {
+    expect(validateNewWithdrawalKind("capital")).toBe(
+      CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR,
+    );
+    expect(CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR).toContain(
+      "Retirar capital",
+    );
+  });
+
+  it("rejects a missing withdrawal kind", () => {
+    expect(validateNewWithdrawalKind(null)).toBe(
+      "Elegí el origen del retiro.",
+    );
+  });
+});
+
+describe("validateCapitalWithdrawalUpdate", () => {
+  it("rejects changing another historical movement into a legacy capital withdrawal", () => {
+    expect(
+      validateCapitalWithdrawalUpdate(
+        movements[0],
+        "withdrawal",
+        "capital",
+      ),
+    ).toBe(CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR);
+  });
+
+  it("allows editing an existing historical capital withdrawal", () => {
+    expect(
+      validateCapitalWithdrawalUpdate(
+        movements[2],
+        "withdrawal",
+        "capital",
+      ),
+    ).toBeNull();
+  });
+
+  it("allows historical return withdrawals", () => {
+    expect(
+      validateCapitalWithdrawalUpdate(
+        movements[0],
+        "withdrawal",
+        "return",
+      ),
+    ).toBeNull();
+  });
+});
 
 describe("validateWithdrawObjectiveCapitalInput", () => {
   it("accepts a valid objective exit", () => {

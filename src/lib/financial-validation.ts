@@ -32,6 +32,28 @@ export const RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR =
 export const WITHDRAWAL_EXCEEDS_RETURN_ERROR =
   "No podés retirar más que el rendimiento disponible de esta posición.";
 
+export type MovementDeletionMode =
+  | "delete-history"
+  | "revert-new-capital"
+  | "unsupported";
+
+export function getMovementDeletionMode(
+  movement: FinancialMovement,
+): MovementDeletionMode {
+  if (movement.capital_flow_kind === null) {
+    return "delete-history";
+  }
+
+  if (
+    movement.type === "contribution" &&
+    movement.capital_flow_kind === "new_capital"
+  ) {
+    return "revert-new-capital";
+  }
+
+  return "unsupported";
+}
+
 export function validateWithdrawalAmount(
   movements: FinancialMovement[],
   withdrawal: WithdrawalIdentity,

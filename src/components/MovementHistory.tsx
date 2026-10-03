@@ -452,24 +452,31 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
                       {movement.currency}
                     </p>
                     <div className="mt-2 flex items-center justify-end gap-2 border-t border-surface-highest/30 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingId(movement.id);
-                          setEditingType(movement.type);
-                          setEditingWithdrawalKind(
-                            movement.withdrawal_kind ?? "capital",
-                          );
-                          setEditingCurrency(movement.currency);
-                          setError(null);
-                        }}
-                        className="text-[11px] font-semibold text-on-surface-muted transition hover:text-on-surface"
-                      >
-                        Editar
-                      </button>
-                      <span aria-hidden="true" className="text-surface-highest">
-                        ·
-                      </span>
+                      {movement.capital_flow_kind !== "new_capital" && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(movement.id);
+                              setEditingType(movement.type);
+                              setEditingWithdrawalKind(
+                                movement.withdrawal_kind ?? "capital",
+                              );
+                              setEditingCurrency(movement.currency);
+                              setError(null);
+                            }}
+                            className="text-[11px] font-semibold text-on-surface-muted transition hover:text-on-surface"
+                          >
+                            Editar
+                          </button>
+                          <span
+                            aria-hidden="true"
+                            className="text-surface-highest"
+                          >
+                            ·
+                          </span>
+                        </>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleDelete(movement.id)}
@@ -477,8 +484,12 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
                         className="text-[11px] font-semibold text-danger transition disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {deletingId === movement.id
-                          ? "Eliminando..."
-                          : "Eliminar"}
+                          ? movement.capital_flow_kind === "new_capital"
+                            ? "Revirtiendo..."
+                            : "Eliminando..."
+                          : movement.capital_flow_kind === "new_capital"
+                            ? "Revertir"
+                            : "Eliminar"}
                       </button>
                     </div>
                   </div>

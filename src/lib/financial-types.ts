@@ -4,6 +4,7 @@ export type MovementType =
   | "valuation";
 
 export type WithdrawalKind = "capital" | "return";
+export type CapitalFlowKind = "new_capital";
 
 export interface Envelope {
   id: string;
@@ -29,6 +30,7 @@ export interface FinancialMovement {
   envelope: string | null;
   envelope_id: string | null;
   withdrawal_kind: WithdrawalKind | null;
+  capital_flow_kind: CapitalFlowKind | null;
   currency: string;
   amount: number;
   occurred_at: string;

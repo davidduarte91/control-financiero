@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { FinancialMovement } from "./financial-types";
 import {
   CAPITAL_WITHDRAWAL_REQUIRES_ENVELOPE_ERROR,
+  getMovementDeletionMode,
   RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR,
   validateWithdrawalAmount,
   WITHDRAWAL_EXCEEDS_CAPITAL_ERROR,
@@ -26,6 +27,7 @@ function movement(
     envelope,
     envelope_id: null,
     withdrawal_kind: withdrawalKind,
+    capital_flow_kind: null,
     currency: "ARS",
     amount,
     occurred_at: occurredAt,
@@ -47,6 +49,31 @@ const movements: FinancialMovement[] = [
   ),
   movement("valuation", "valuation", 1_700, "2026-01-04", null),
 ];
+
+describe("getMovementDeletionMode", () => {
+  it("keeps generic deletion for historical movements", () => {
+    expect(getMovementDeletionMode(movements[0])).toBe("delete-history");
+  });
+
+  it("routes new capital contributions through reversal", () => {
+    expect(
+      getMovementDeletionMode({
+        ...movements[0],
+        capital_flow_kind: "new_capital",
+      }),
+    ).toBe("revert-new-capital");
+  });
+
+  it("rejects unsupported marked combinations", () => {
+    expect(
+      getMovementDeletionMode({
+        ...movements[0],
+        type: "valuation",
+        capital_flow_kind: "new_capital",
+      }),
+    ).toBe("unsupported");
+  });
+});
 
 const position = {
   investment: "Fondo A",

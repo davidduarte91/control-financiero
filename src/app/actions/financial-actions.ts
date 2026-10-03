@@ -4,17 +4,22 @@ import { revalidatePath } from "next/cache";
 
 import { getEnvelopeById } from "@/lib/envelope-data";
 import {
-  createContribution,
   createValuation,
   createWithdrawal,
   deleteFinancialMovement,
+  getFinancialMovementById,
   getFinancialMovements,
+  registerNewCapital,
   renameEnvelope,
+  revertNewCapital,
   updateFinancialMovement,
   type CreateMovementInput,
 } from "@/lib/financial-data";
 import type { FinancialMovement } from "@/lib/financial-types";
-import { validateWithdrawalAmount } from "@/lib/financial-validation";
+import {
+  getMovementDeletionMode,
+  validateWithdrawalAmount,
+} from "@/lib/financial-validation";
 import {
   MOVEMENT_ENVELOPE_NOT_FOUND_ERROR,
   movementRequiresEnvelope,
@@ -176,7 +181,15 @@ async function createMovementAction(
     }
 
     if (type === "contribution") {
-      await createContribution(normalizedInput);
+      await registerNewCapital({
+        envelope_id: normalizedInput.envelope_id!,
+        investment: normalizedInput.investment,
+        account: normalizedInput.account,
+        currency: normalizedInput.currency,
+        amount: normalizedInput.amount,
+        occurred_at: normalizedInput.occurred_at,
+        note: normalizedInput.note,
+      });
     } else if (type === "withdrawal") {
       await createWithdrawal(normalizedInput);
     } else {
@@ -225,6 +238,20 @@ export async function updateMovementAction(
     }
 
     const validated = await validateAndNormalizeMovementInput(input.type, input);
+    const originalMovement = validated.movements.find(
+      (movement) => movement.id === id,
+    );
+
+    if (!originalMovement) {
+      throw new Error("El movimiento no existe.");
+    }
+
+    if (originalMovement.capital_flow_kind === "new_capital") {
+      throw new Error(
+        "Los aportes de nuevo capital no se pueden editar; deben revertirse.",
+      );
+    }
+
     const withdrawalKind = validated.input.withdrawal_kind;
     const normalizedInput = {
       ...validated.input,
@@ -277,7 +304,22 @@ export async function deleteMovementAction(
       throw new Error("El movimiento es inválido");
     }
 
-    await deleteFinancialMovement(id);
+    const movement = await getFinancialMovementById(id);
+
+    if (!movement) {
+      throw new Error("El movimiento no existe.");
+    }
+
+    const deletionMode = getMovementDeletionMode(movement);
+
+    if (deletionMode === "revert-new-capital") {
+      await revertNewCapital(id);
+    } else if (deletionMode === "delete-history") {
+      await deleteFinancialMovement(id);
+    } else {
+      throw new Error("Este movimiento requiere una reversión específica.");
+    }
+
     revalidatePath("/");
     return { success: true };
   } catch (error) {

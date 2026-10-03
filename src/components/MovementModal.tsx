@@ -32,7 +32,7 @@ const movementTypes: Array<{
 }> = [
   {
     value: "contribution",
-    label: "Aporte (+)",
+    label: "Nuevo capital (+)",
     activeClass: "bg-primary text-on-primary",
   },
   {
@@ -424,6 +424,13 @@ export function MovementModal({ movements, envelopes }: MovementModalProps) {
               })}
             </div>
           </fieldset>
+
+          {movementType === "contribution" && (
+            <p className="mt-3 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs text-on-surface-muted">
+              Este aporte aumenta el saldo del sobre y registra el capital en la
+              inversión en una sola operación.
+            </p>
+          )}
 
           {movementType === "withdrawal" && (
             <fieldset className="mt-4">

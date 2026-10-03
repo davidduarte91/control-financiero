@@ -6,6 +6,7 @@ import {
   calculateCurrentValue,
   calculateEnvelopeRemainingCapital,
   calculateEnvelopePositionCapitals,
+  calculateObjectiveExitAvailableCapital,
   calculateEnvelopeSummaries,
   calculatePositions,
   calculateRemainingCapital,
@@ -143,6 +144,20 @@ describe("financial calculations", () => {
           remainingCapital: 750,
         },
       ]);
+    });
+
+    describe("calculateObjectiveExitAvailableCapital", () => {
+      it("caps the available amount by the envelope balance", () => {
+        expect(calculateObjectiveExitAvailableCapital(1_000, 700)).toBe(700);
+      });
+
+      it("caps the available amount by the position capital", () => {
+        expect(calculateObjectiveExitAvailableCapital(700, 1_000)).toBe(700);
+      });
+
+      it("does not return a negative available amount", () => {
+        expect(calculateObjectiveExitAvailableCapital(700, -1)).toBe(0);
+      });
     });
   });
 

@@ -4,8 +4,10 @@ import type { FinancialMovement } from "./financial-types";
 import {
   CAPITAL_WITHDRAWAL_REQUIRES_ENVELOPE_ERROR,
   getMovementDeletionMode,
+  getMovementEditError,
   RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR,
   validateReallocateCapitalInput,
+  validateWithdrawObjectiveCapitalInput,
   validateWithdrawalAmount,
   WITHDRAWAL_EXCEEDS_CAPITAL_ERROR,
   WITHDRAWAL_EXCEEDS_ENVELOPE_CAPITAL_ERROR,
@@ -63,6 +65,46 @@ const validReallocation = {
   occurredAt: "2026-10-03T10:00",
   note: null,
 };
+
+const validObjectiveExit = {
+  envelopeId: "envelope-1",
+  investment: "SBS RTA Pesos",
+  account: "Brubank",
+  currency: "ARS",
+  amount: 50_000,
+  occurredAt: "2026-10-03T10:00",
+  note: null,
+};
+
+describe("validateWithdrawObjectiveCapitalInput", () => {
+  it("accepts a valid objective exit", () => {
+    expect(
+      validateWithdrawObjectiveCapitalInput(validObjectiveExit),
+    ).toBeNull();
+  });
+
+  it.each([0, -1])("rejects amount %s", (amount) => {
+    expect(
+      validateWithdrawObjectiveCapitalInput({
+        ...validObjectiveExit,
+        amount,
+      }),
+    ).toBe("El monto debe ser mayor que 0.");
+  });
+
+  it.each([
+    ["envelopeId", "El sobre es obligatorio."],
+    ["investment", "La inversión es obligatoria."],
+    ["account", "La cuenta es obligatoria."],
+  ] as const)("rejects missing %s", (field, expectedError) => {
+    expect(
+      validateWithdrawObjectiveCapitalInput({
+        ...validObjectiveExit,
+        [field]: "",
+      }),
+    ).toBe(expectedError);
+  });
+});
 
 describe("validateReallocateCapitalInput", () => {
   it("accepts a valid reallocation", () => {
@@ -153,6 +195,38 @@ describe("getMovementDeletionMode", () => {
         operation_id: "operation-1",
       }),
     ).toBe("unsupported");
+  });
+
+  it("does not allow individual deletion or reversal of objective exits", () => {
+    expect(
+      getMovementDeletionMode({
+        ...movements[0],
+        type: "withdrawal",
+        withdrawal_kind: "capital",
+        capital_flow_kind: "objective_exit",
+        operation_id: null,
+      }),
+    ).toBe("unsupported");
+  });
+});
+
+describe("getMovementEditError", () => {
+  it("prevents individual editing of objective exits", () => {
+    expect(
+      getMovementEditError({
+        ...movements[0],
+        type: "withdrawal",
+        withdrawal_kind: "capital",
+        capital_flow_kind: "objective_exit",
+        operation_id: null,
+      }),
+    ).toBe(
+      "Las salidas definitivas no se pueden editar; requieren una reversión específica.",
+    );
+  });
+
+  it("allows editing historical movements", () => {
+    expect(getMovementEditError(movements[0])).toBeNull();
   });
 });
 

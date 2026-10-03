@@ -4,7 +4,10 @@ export type MovementType =
   | "valuation";
 
 export type WithdrawalKind = "capital" | "return";
-export type CapitalFlowKind = "new_capital" | "reallocation";
+export type CapitalFlowKind =
+  | "new_capital"
+  | "reallocation"
+  | "objective_exit";
 
 export interface ReallocateCapitalInput {
   envelopeId: string;
@@ -12,6 +15,16 @@ export interface ReallocateCapitalInput {
   sourceAccount: string;
   destinationInvestment: string;
   destinationAccount: string;
+  currency: string;
+  amount: number;
+  occurredAt: string;
+  note: string | null;
+}
+
+export interface WithdrawObjectiveCapitalInput {
+  envelopeId: string;
+  investment: string;
+  account: string;
   currency: string;
   amount: number;
   occurredAt: string;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { FinancialMovement } from "./financial-types";
 import {
+  getMovementHistoryLabel,
   groupMovementsForHistory,
   historyItemMatchesType,
 } from "./movement-history";
@@ -44,6 +45,7 @@ describe("groupMovementsForHistory", () => {
       withdrawal: { id: "out" },
       contribution: { id: "in" },
     });
+
   });
 
   it("does not combine movements without the same operation id", () => {
@@ -54,6 +56,27 @@ describe("groupMovementsForHistory", () => {
 
     expect(result).toHaveLength(2);
     expect(result.every((item) => item.kind === "movement")).toBe(true);
+  });
+
+  describe("getMovementHistoryLabel", () => {
+    it("labels objective exits as capital withdrawals", () => {
+      expect(
+        getMovementHistoryLabel(
+          movement("exit", "withdrawal", "objective_exit"),
+        ),
+      ).toBe("Retiro de capital");
+    });
+
+    it("keeps return withdrawals distinct from objective exits", () => {
+      const returnWithdrawal = {
+        ...movement("return", "withdrawal"),
+        withdrawal_kind: "return" as const,
+      };
+
+      expect(getMovementHistoryLabel(returnWithdrawal)).toBe(
+        "Retiro de rendimientos",
+      );
+    });
   });
 
   it("matches grouped redistributions under the contribution and withdrawal filters", () => {

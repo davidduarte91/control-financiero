@@ -109,3 +109,28 @@ export function historyItemMatchesType(
 
   return item.movement.type === type;
 }
+
+export function getMovementHistoryLabel(
+  movement: FinancialMovement,
+): string {
+  if (movement.capital_flow_kind === "objective_exit") {
+    return "Retiro de capital";
+  }
+
+  return movementTypeLabel(movement.type, movement.withdrawal_kind);
+}
+
+function movementTypeLabel(
+  type: FinancialMovement["type"],
+  withdrawalKind: FinancialMovement["withdrawal_kind"],
+): string {
+  if (type === "contribution") {
+    return "Aporte";
+  }
+
+  if (type === "valuation") {
+    return "Actualización de valor";
+  }
+
+  return withdrawalKind === "return" ? "Retiro de rendimientos" : "Retiro";
+}

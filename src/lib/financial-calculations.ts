@@ -171,6 +171,13 @@ export function calculateEnvelopePositionCapitals(
   }));
 }
 
+export function calculateObjectiveExitAvailableCapital(
+  positionCapital: number,
+  envelopeBalance: number,
+): number {
+  return Math.max(0, Math.min(positionCapital, envelopeBalance));
+}
+
 export function calculatePositions(movements: FinancialMovement[]) {
   return groupMovementsByPosition(movements).map((group) => ({
     investment: group.investment,

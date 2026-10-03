@@ -14,12 +14,15 @@ import {
   renameEnvelope,
   revertNewCapital,
   updateFinancialMovement,
+  withdrawObjectiveCapital,
   type CreateMovementInput,
 } from "@/lib/financial-data";
 import type { FinancialMovement } from "@/lib/financial-types";
 import {
   getMovementDeletionMode,
   validateReallocateCapitalInput,
+  getMovementEditError,
+  validateWithdrawObjectiveCapitalInput,
   validateWithdrawalAmount,
 } from "@/lib/financial-validation";
 import {
@@ -105,6 +108,42 @@ export async function reallocateCapitalAction(
     return {
       success: false,
       error: getErrorMessage(error, "No se pudo redistribuir el capital."),
+    };
+  }
+}
+
+export async function withdrawObjectiveCapitalAction(
+  formData: FormData,
+): Promise<FinancialActionResult> {
+  const input = {
+    envelopeId: getFormString(formData, "envelopeId").trim(),
+    investment: getFormString(formData, "investment")
+      .trim()
+      .replace(/\s+/g, " "),
+    account: getFormString(formData, "account").trim().replace(/\s+/g, " "),
+    currency: getFormString(formData, "currency").trim().toUpperCase(),
+    amount: Number(getFormString(formData, "amount")),
+    occurredAt: getFormString(formData, "occurredAt").trim(),
+    note: getFormString(formData, "note").trim() || null,
+  };
+
+  const validationError = validateWithdrawObjectiveCapitalInput(input);
+
+  if (validationError) {
+    return { success: false, error: validationError };
+  }
+
+  try {
+    await withdrawObjectiveCapital(input);
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: getErrorMessage(
+        error,
+        "No se pudo retirar capital del objetivo.",
+      ),
     };
   }
 }
@@ -294,12 +333,10 @@ export async function updateMovementAction(
       throw new Error("El movimiento no existe.");
     }
 
-    if (originalMovement.capital_flow_kind !== null) {
-      throw new Error(
-        originalMovement.capital_flow_kind === "new_capital"
-          ? "Los aportes de nuevo capital no se pueden editar; deben revertirse."
-          : "Las redistribuciones no se pueden editar individualmente.",
-      );
+    const movementEditError = getMovementEditError(originalMovement);
+
+    if (movementEditError) {
+      throw new Error(movementEditError);
     }
 
     const withdrawalKind = validated.input.withdrawal_kind;

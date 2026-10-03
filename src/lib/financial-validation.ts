@@ -6,6 +6,7 @@ import {
 import type {
   FinancialMovement,
   ReallocateCapitalInput,
+  WithdrawObjectiveCapitalInput,
   WithdrawalKind,
 } from "./financial-types";
 
@@ -35,6 +36,36 @@ export const RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR =
   "Un retiro de rendimientos no puede estar asociado a un sobre.";
 export const WITHDRAWAL_EXCEEDS_RETURN_ERROR =
   "No podés retirar más que el rendimiento disponible de esta posición.";
+
+export function validateWithdrawObjectiveCapitalInput(
+  input: WithdrawObjectiveCapitalInput,
+): string | null {
+  if (!input.envelopeId?.trim()) {
+    return "El sobre es obligatorio.";
+  }
+
+  if (!input.investment?.trim()) {
+    return "La inversión es obligatoria.";
+  }
+
+  if (!input.account?.trim()) {
+    return "La cuenta es obligatoria.";
+  }
+
+  if (!input.currency?.trim()) {
+    return "La moneda es obligatoria.";
+  }
+
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return "El monto debe ser mayor que 0.";
+  }
+
+  if (!input.occurredAt?.trim()) {
+    return "La fecha es obligatoria.";
+  }
+
+  return null;
+}
 
 export function validateReallocateCapitalInput(
   input: ReallocateCapitalInput,
@@ -112,6 +143,24 @@ export function getMovementDeletionMode(
   }
 
   return "unsupported";
+}
+
+export function getMovementEditError(
+  movement: FinancialMovement,
+): string | null {
+  if (movement.capital_flow_kind === null) {
+    return null;
+  }
+
+  if (movement.capital_flow_kind === "new_capital") {
+    return "Los aportes de nuevo capital no se pueden editar; deben revertirse.";
+  }
+
+  if (movement.capital_flow_kind === "objective_exit") {
+    return "Las salidas definitivas no se pueden editar; requieren una reversión específica.";
+  }
+
+  return "Las redistribuciones no se pueden editar individualmente.";
 }
 
 export function validateWithdrawalAmount(

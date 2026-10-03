@@ -3,6 +3,7 @@ import "server-only";
 import type {
   FinancialMovement,
   ReallocateCapitalInput,
+  WithdrawObjectiveCapitalInput,
 } from "./financial-types";
 import { getSupabaseServerClient } from "./supabase-server";
 
@@ -51,6 +52,29 @@ export async function reallocateCapital(
 
   if (typeof data !== "string" || !data) {
     throw new Error("La RPC no devolvió el identificador de la redistribución.");
+  }
+
+  return data;
+}
+
+export async function withdrawObjectiveCapital(
+  input: WithdrawObjectiveCapitalInput,
+): Promise<FinancialMovement> {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .rpc("withdraw_objective_capital", {
+      p_envelope_id: input.envelopeId,
+      p_investment: input.investment,
+      p_account: input.account,
+      p_currency: input.currency,
+      p_amount: input.amount,
+      p_occurred_at: input.occurredAt,
+      p_note: input.note,
+    })
+    .single<FinancialMovement>();
+
+  if (error) {
+    throw new Error(error.message);
   }
 
   return data;

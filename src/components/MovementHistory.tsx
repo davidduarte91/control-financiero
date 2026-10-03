@@ -14,16 +14,11 @@ import type {
   WithdrawalKind,
 } from "@/lib/financial-types";
 import {
+  getMovementHistoryLabel,
   groupMovementsForHistory,
   historyItemMatchesType,
 } from "@/lib/movement-history";
 import { validateWithdrawalAmount } from "@/lib/financial-validation";
-
-const movementTypeLabels: Record<FinancialMovement["type"], string> = {
-  contribution: "Aporte",
-  withdrawal: "Retiro",
-  valuation: "Actualización de valor",
-};
 
 type MovementFilter = "all" | FinancialMovement["type"];
 
@@ -333,6 +328,53 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
 
           const movement = item.movement;
           const typeStyle = movementTypeStyles[movement.type];
+
+          if (movement.capital_flow_kind === "objective_exit") {
+            return (
+              <li
+                key={movement.id}
+                className="min-w-0 rounded-xl border border-surface-highest/40 bg-surface-container px-3.5 py-3 shadow-sm"
+              >
+                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+                  <div
+                    aria-hidden="true"
+                    className={`flex size-9 items-center justify-center rounded-full font-mono text-base font-bold ${typeStyle.badge}`}
+                  >
+                    {typeStyle.mark}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold ${typeStyle.amount}`}>
+                      {getMovementHistoryLabel(movement)}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-on-surface-muted">
+                      {movement.investment} / {movement.account}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-on-surface-muted">
+                      Sobre: {movement.envelope ?? "Sin sobre"} ·{" "}
+                      {formatDate(movement.occurred_at)}
+                    </p>
+                    {movement.note && (
+                      <p className="mt-1 break-words text-xs text-on-surface-muted">
+                        {movement.note}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex min-w-[124px] flex-col items-end text-right">
+                    <p className="text-[11px] font-semibold text-on-surface-muted">
+                      Monto
+                    </p>
+                    <p className={`font-mono text-sm font-bold ${typeStyle.amount}`}>
+                      {formatCurrency(movement.amount, movement.currency)}
+                    </p>
+                    <p className="mt-1 font-mono text-[11px] text-on-surface-muted">
+                      {movement.currency}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            );
+          }
+
           const movementSource =
             movement.type === "withdrawal"
               ? movement.withdrawal_kind === "return"
@@ -490,7 +532,7 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
                         {movement.investment}
                       </p>
                       <span className={`text-[11px] font-semibold ${typeStyle.amount}`}>
-                        {movementTypeLabels[movement.type]}
+                        {getMovementHistoryLabel(movement)}
                       </span>
                     </div>
                     <p className="mt-1 break-words text-xs text-on-surface-muted">

@@ -2,13 +2,14 @@
 
 import {
   MOVEMENT_FORM_OPEN_EVENT,
+  OBJECTIVE_EXIT_FORM_OPEN_EVENT,
   REALLOCATION_FORM_OPEN_EVENT,
 } from "@/lib/movement-form-prefill";
 
 export function DashboardHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-surface-high bg-surface/90 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
+      <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-8">
         <div className="flex items-center gap-3">
           <div
             aria-hidden="true"
@@ -26,7 +27,16 @@ export function DashboardHeader() {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(new Event(OBJECTIVE_EXIT_FORM_OPEN_EVENT))
+            }
+            className="rounded-xl border border-danger/40 px-2.5 py-2.5 text-xs font-bold text-danger transition hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger sm:px-4 sm:text-sm"
+          >
+            Retirar capital
+          </button>
           <button
             type="button"
             onClick={() =>

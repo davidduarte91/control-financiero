@@ -13,6 +13,10 @@ import type {
   FinancialMovement,
   WithdrawalKind,
 } from "@/lib/financial-types";
+import {
+  groupMovementsForHistory,
+  historyItemMatchesType,
+} from "@/lib/movement-history";
 import { validateWithdrawalAmount } from "@/lib/financial-validation";
 
 const movementTypeLabels: Record<FinancialMovement["type"], string> = {
@@ -87,10 +91,13 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
   const [editingWithdrawalKind, setEditingWithdrawalKind] =
     useState<WithdrawalKind>("capital");
   const [editingCurrency, setEditingCurrency] = useState("");
+  const historyItems = groupMovementsForHistory(movements);
   const filteredMovements =
     activeFilter === "all"
-      ? movements
-      : movements.filter((movement) => movement.type === activeFilter);
+      ? historyItems
+      : historyItems.filter((item) =>
+          historyItemMatchesType(item, activeFilter),
+        );
   const visibleMovements = isExpanded
     ? filteredMovements
     : filteredMovements.slice(0, collapsedMovementCount);
@@ -237,7 +244,7 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
           </p>
           </div>
           <span className="rounded-lg bg-surface-highest px-2.5 py-1 font-mono text-[11px] font-semibold text-on-surface-muted">
-            {filteredMovements.length} de {movements.length}
+            {filteredMovements.length} de {historyItems.length}
           </span>
         </div>
         <div className="mt-4 flex items-center gap-1 rounded-xl border border-surface-high/50 bg-surface-lowest p-1">
@@ -272,7 +279,59 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
       )}
 
       <ul className="max-h-[600px] space-y-2 overflow-y-auto pr-1">
-        {visibleMovements.map((movement) => {
+        {visibleMovements.map((item) => {
+          if (item.kind === "reallocation") {
+            const { contribution, withdrawal } = item;
+
+            return (
+              <li
+                key={item.operationId}
+                className="min-w-0 rounded-xl border border-surface-highest/40 bg-surface-container px-3.5 py-3 shadow-sm"
+              >
+                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+                  <div
+                    aria-hidden="true"
+                    className="flex size-9 items-center justify-center rounded-full bg-accent/10 font-mono text-base font-bold text-accent"
+                  >
+                    ↔
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-sm font-semibold text-on-surface">
+                        Redistribución
+                      </p>
+                    </div>
+                    <p className="mt-1 break-words text-xs text-on-surface-muted">
+                      {withdrawal.investment} / {withdrawal.account} →{" "}
+                      {contribution.investment} / {contribution.account}
+                    </p>
+                    <p className="mt-1 break-words text-xs text-on-surface-muted">
+                      Sobre: {withdrawal.envelope ?? "Sin sobre"} ·{" "}
+                      {formatDate(item.occurredAt)}
+                    </p>
+                    {contribution.note && (
+                      <p className="mt-1 break-words text-xs text-on-surface-muted">
+                        {contribution.note}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex min-w-[124px] flex-col items-end text-right">
+                    <p className="text-[11px] font-semibold text-on-surface-muted">
+                      Monto
+                    </p>
+                    <p className="font-mono text-sm font-bold text-accent">
+                      {formatCurrency(contribution.amount, contribution.currency)}
+                    </p>
+                    <p className="mt-1 font-mono text-[11px] text-on-surface-muted">
+                      {contribution.currency}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            );
+          }
+
+          const movement = item.movement;
           const typeStyle = movementTypeStyles[movement.type];
           const movementSource =
             movement.type === "withdrawal"
@@ -452,7 +511,7 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
                       {movement.currency}
                     </p>
                     <div className="mt-2 flex items-center justify-end gap-2 border-t border-surface-highest/30 pt-2">
-                      {movement.capital_flow_kind !== "new_capital" && (
+                      {movement.capital_flow_kind === null && (
                         <>
                           <button
                             type="button"
@@ -477,20 +536,18 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
                           </span>
                         </>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(movement.id)}
-                        disabled={deletingId === movement.id}
-                        className="text-[11px] font-semibold text-danger transition disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {deletingId === movement.id
-                          ? movement.capital_flow_kind === "new_capital"
+                      {movement.capital_flow_kind === "new_capital" && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(movement.id)}
+                          disabled={deletingId === movement.id}
+                          className="text-[11px] font-semibold text-danger transition disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {deletingId === movement.id
                             ? "Revirtiendo..."
-                            : "Eliminando..."
-                          : movement.capital_flow_kind === "new_capital"
-                            ? "Revertir"
-                            : "Eliminar"}
-                      </button>
+                            : "Revertir"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

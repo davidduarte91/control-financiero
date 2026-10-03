@@ -3,7 +3,11 @@ import {
   calculateEnvelopeRemainingCapital,
   calculatePositions,
 } from "./financial-calculations";
-import type { FinancialMovement, WithdrawalKind } from "./financial-types";
+import type {
+  FinancialMovement,
+  ReallocateCapitalInput,
+  WithdrawalKind,
+} from "./financial-types";
 
 interface PositionIdentity {
   investment: string;
@@ -31,6 +35,62 @@ export const RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR =
   "Un retiro de rendimientos no puede estar asociado a un sobre.";
 export const WITHDRAWAL_EXCEEDS_RETURN_ERROR =
   "No podés retirar más que el rendimiento disponible de esta posición.";
+
+export function validateReallocateCapitalInput(
+  input: ReallocateCapitalInput,
+): string | null {
+  const sourceInvestment = normalizePositionValue(input.sourceInvestment);
+  const sourceAccount = normalizePositionValue(input.sourceAccount);
+  const destinationInvestment = normalizePositionValue(
+    input.destinationInvestment,
+  );
+  const destinationAccount = normalizePositionValue(input.destinationAccount);
+
+  if (!input.envelopeId?.trim()) {
+    return "El sobre es obligatorio.";
+  }
+
+  if (!sourceInvestment) {
+    return "La inversión de origen es obligatoria.";
+  }
+
+  if (!sourceAccount) {
+    return "La cuenta de origen es obligatoria.";
+  }
+
+  if (!destinationInvestment) {
+    return "La inversión de destino es obligatoria.";
+  }
+
+  if (!destinationAccount) {
+    return "La cuenta de destino es obligatoria.";
+  }
+
+  if (
+    sourceInvestment === destinationInvestment &&
+    sourceAccount === destinationAccount
+  ) {
+    return "El origen y el destino no pueden ser la misma posición.";
+  }
+
+  if (!input.currency?.trim()) {
+    return "La moneda es obligatoria.";
+  }
+
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return "El monto debe ser mayor que 0.";
+  }
+
+  if (!input.occurredAt?.trim()) {
+    return "La fecha es obligatoria.";
+  }
+
+  return null;
+}
+
+function normalizePositionValue(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
 
 export type MovementDeletionMode =
   | "delete-history"

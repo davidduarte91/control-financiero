@@ -5,6 +5,7 @@ import {
   calculateCurrencySummaries,
   calculateCurrentValue,
   calculateEnvelopeRemainingCapital,
+  calculateEnvelopePositionCapitals,
   calculateEnvelopeSummaries,
   calculatePositions,
   calculateRemainingCapital,
@@ -25,6 +26,7 @@ const movements: FinancialMovement[] = [
     envelope_id: null,
     withdrawal_kind: null,
     capital_flow_kind: null,
+    operation_id: null,
     currency: "ARS",
     amount: 1_000,
     occurred_at: "2026-01-01",
@@ -40,6 +42,7 @@ const movements: FinancialMovement[] = [
     envelope_id: null,
     withdrawal_kind: null,
     capital_flow_kind: null,
+    operation_id: null,
     currency: "ARS",
     amount: 500,
     occurred_at: "2026-01-02",
@@ -55,6 +58,7 @@ const movements: FinancialMovement[] = [
     envelope_id: null,
     withdrawal_kind: "capital",
     capital_flow_kind: null,
+    operation_id: null,
     currency: "ARS",
     amount: 300,
     occurred_at: "2026-01-03",
@@ -70,6 +74,7 @@ const movements: FinancialMovement[] = [
     envelope_id: null,
     withdrawal_kind: null,
     capital_flow_kind: null,
+    operation_id: null,
     currency: "ARS",
     amount: 10_000,
     occurred_at: "2026-01-04",
@@ -93,6 +98,7 @@ function createMovement(
     envelope_id: null,
     withdrawal_kind: type === "withdrawal" ? "capital" : null,
     capital_flow_kind: null,
+    operation_id: null,
     currency: "ARS",
     amount,
     occurred_at: occurredAt,
@@ -104,6 +110,40 @@ function createMovement(
 describe("financial calculations", () => {
   it("sums only contributions", () => {
     expect(calculateContributedCapital(movements)).toBe(1_500);
+  });
+
+  describe("calculateEnvelopePositionCapitals", () => {
+    it("uses envelope_id to calculate capital remaining in each position", () => {
+      const envelopeMovements = [
+        {
+          ...createMovement("envelope-in", "contribution", 1_000, "2026-01-01"),
+          envelope_id: "envelope-1",
+        },
+        {
+          ...createMovement("envelope-out", "withdrawal", 250, "2026-01-02"),
+          envelope_id: "envelope-1",
+        },
+        {
+          ...createMovement("other-envelope", "contribution", 500, "2026-01-03"),
+          envelope_id: "envelope-2",
+        },
+        {
+          ...createMovement("legacy-name-only", "contribution", 700, "2026-01-04"),
+          envelope: "Envelope One",
+        },
+      ];
+
+      expect(
+        calculateEnvelopePositionCapitals(envelopeMovements, "envelope-1"),
+      ).toEqual([
+        {
+          investment: "Investment",
+          account: "Account",
+          currency: "ARS",
+          remainingCapital: 750,
+        },
+      ]);
+    });
   });
 
   it("sums only withdrawals", () => {

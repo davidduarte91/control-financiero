@@ -9,6 +9,7 @@ import {
   deleteFinancialMovement,
   getFinancialMovementById,
   getFinancialMovements,
+  reallocateCapital,
   registerNewCapital,
   renameEnvelope,
   revertNewCapital,
@@ -18,6 +19,7 @@ import {
 import type { FinancialMovement } from "@/lib/financial-types";
 import {
   getMovementDeletionMode,
+  validateReallocateCapitalInput,
   validateWithdrawalAmount,
 } from "@/lib/financial-validation";
 import {
@@ -27,7 +29,7 @@ import {
 } from "@/lib/movement-envelope";
 
 export type FinancialActionResult =
-  | { success: true }
+  | { success: true; operationId?: string }
   | { success: false; error: string };
 
 type MovementActionInput = Omit<CreateMovementInput, "type" | "envelope">;
@@ -59,6 +61,52 @@ function findExistingSpelling(
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+function getFormString(formData: FormData, name: string): string {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+export async function reallocateCapitalAction(
+  formData: FormData,
+): Promise<FinancialActionResult> {
+  const input = {
+    envelopeId: getFormString(formData, "envelopeId").trim(),
+    sourceInvestment: getFormString(formData, "sourceInvestment")
+      .trim()
+      .replace(/\s+/g, " "),
+    sourceAccount: getFormString(formData, "sourceAccount")
+      .trim()
+      .replace(/\s+/g, " "),
+    destinationInvestment: getFormString(formData, "destinationInvestment")
+      .trim()
+      .replace(/\s+/g, " "),
+    destinationAccount: getFormString(formData, "destinationAccount")
+      .trim()
+      .replace(/\s+/g, " "),
+    currency: getFormString(formData, "currency").trim().toUpperCase(),
+    amount: Number(getFormString(formData, "amount")),
+    occurredAt: getFormString(formData, "occurredAt").trim(),
+    note: getFormString(formData, "note").trim() || null,
+  };
+
+  const validationError = validateReallocateCapitalInput(input);
+
+  if (validationError) {
+    return { success: false, error: validationError };
+  }
+
+  try {
+    const operationId = await reallocateCapital(input);
+    revalidatePath("/");
+    return { success: true, operationId };
+  } catch (error) {
+    return {
+      success: false,
+      error: getErrorMessage(error, "No se pudo redistribuir el capital."),
+    };
+  }
 }
 
 async function validateAndNormalizeMovementInput(
@@ -246,9 +294,11 @@ export async function updateMovementAction(
       throw new Error("El movimiento no existe.");
     }
 
-    if (originalMovement.capital_flow_kind === "new_capital") {
+    if (originalMovement.capital_flow_kind !== null) {
       throw new Error(
-        "Los aportes de nuevo capital no se pueden editar; deben revertirse.",
+        originalMovement.capital_flow_kind === "new_capital"
+          ? "Los aportes de nuevo capital no se pueden editar; deben revertirse."
+          : "Las redistribuciones no se pueden editar individualmente.",
       );
     }
 

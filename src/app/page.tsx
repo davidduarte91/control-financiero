@@ -4,6 +4,7 @@ import { EnvelopesList } from "@/components/EnvelopesList";
 import { InvestmentsList } from "@/components/InvestmentsList";
 import { MovementHistory } from "@/components/MovementHistory";
 import { MovementModal } from "@/components/MovementModal";
+import { ReallocationModal } from "@/components/ReallocationModal";
 import {
   calculateCurrencySummaries,
   calculatePositions,
@@ -36,6 +37,7 @@ export default async function Home() {
 
         <div className="space-y-10">
           <MovementModal movements={movements} envelopes={envelopes} />
+          <ReallocationModal movements={movements} envelopes={envelopes} />
           <DashboardSummary summaries={currencySummaries} />
           <div className="grid items-start gap-6 lg:grid-cols-2">
             <EnvelopesList envelopes={envelopes} />

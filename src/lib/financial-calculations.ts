@@ -150,6 +150,27 @@ export function groupMovementsByPosition(
   return Array.from(groups.values());
 }
 
+export function calculateEnvelopePositionCapitals(
+  movements: FinancialMovement[],
+  envelopeId: string,
+): Array<{
+  investment: string;
+  account: string;
+  currency: string;
+  remainingCapital: number;
+}> {
+  const envelopeMovements = movements.filter(
+    (movement) => movement.envelope_id === envelopeId,
+  );
+
+  return groupMovementsByPosition(envelopeMovements).map((group) => ({
+    investment: group.investment,
+    account: group.account,
+    currency: group.currency,
+    remainingCapital: calculateRemainingCapital(group.movements),
+  }));
+}
+
 export function calculatePositions(movements: FinancialMovement[]) {
   return groupMovementsByPosition(movements).map((group) => ({
     investment: group.investment,

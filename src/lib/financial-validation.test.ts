@@ -5,6 +5,7 @@ import {
   CAPITAL_WITHDRAWAL_REQUIRES_ENVELOPE_ERROR,
   getMovementDeletionMode,
   RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR,
+  validateReallocateCapitalInput,
   validateWithdrawalAmount,
   WITHDRAWAL_EXCEEDS_CAPITAL_ERROR,
   WITHDRAWAL_EXCEEDS_ENVELOPE_CAPITAL_ERROR,
@@ -28,6 +29,7 @@ function movement(
     envelope_id: null,
     withdrawal_kind: withdrawalKind,
     capital_flow_kind: null,
+    operation_id: null,
     currency: "ARS",
     amount,
     occurred_at: occurredAt,
@@ -50,6 +52,71 @@ const movements: FinancialMovement[] = [
   movement("valuation", "valuation", 1_700, "2026-01-04", null),
 ];
 
+const validReallocation = {
+  envelopeId: "envelope-1",
+  sourceInvestment: "SBS RTA Pesos",
+  sourceAccount: "Brubank",
+  destinationInvestment: "Cedears",
+  destinationAccount: "Brubank",
+  currency: "ARS",
+  amount: 50_000,
+  occurredAt: "2026-10-03T10:00",
+  note: null,
+};
+
+describe("validateReallocateCapitalInput", () => {
+  it("accepts a valid reallocation", () => {
+    expect(validateReallocateCapitalInput(validReallocation)).toBeNull();
+  });
+
+  it("rejects identical source and destination positions", () => {
+    expect(
+      validateReallocateCapitalInput({
+        ...validReallocation,
+        destinationInvestment: " SBS   RTA Pesos ",
+      }),
+    ).toBe("El origen y el destino no pueden ser la misma posición.");
+  });
+
+  it.each([0, -1])("rejects amount %s", (amount) => {
+    expect(
+      validateReallocateCapitalInput({ ...validReallocation, amount }),
+    ).toBe("El monto debe ser mayor que 0.");
+  });
+
+  it("rejects missing required fields", () => {
+    const missingRequiredFields: Array<
+      [keyof typeof validReallocation, string]
+    > = [
+      ["envelopeId", "El sobre es obligatorio."],
+      ["sourceInvestment", "La inversión de origen es obligatoria."],
+      ["sourceAccount", "La cuenta de origen es obligatoria."],
+      ["destinationInvestment", "La inversión de destino es obligatoria."],
+      ["destinationAccount", "La cuenta de destino es obligatoria."],
+      ["currency", "La moneda es obligatoria."],
+      ["occurredAt", "La fecha es obligatoria."],
+    ];
+
+    for (const [field, expectedError] of missingRequiredFields) {
+      expect(
+        validateReallocateCapitalInput({
+          ...validReallocation,
+          [field]: "",
+        }),
+      ).toBe(expectedError);
+    }
+  });
+
+  it("rejects a missing amount", () => {
+    expect(
+      validateReallocateCapitalInput({
+        ...validReallocation,
+        amount: Number.NaN,
+      }),
+    ).toBe("El monto debe ser mayor que 0.");
+  });
+});
+
 describe("getMovementDeletionMode", () => {
   it("keeps generic deletion for historical movements", () => {
     expect(getMovementDeletionMode(movements[0])).toBe("delete-history");
@@ -60,6 +127,7 @@ describe("getMovementDeletionMode", () => {
       getMovementDeletionMode({
         ...movements[0],
         capital_flow_kind: "new_capital",
+        operation_id: null,
       }),
     ).toBe("revert-new-capital");
   });
@@ -70,6 +138,19 @@ describe("getMovementDeletionMode", () => {
         ...movements[0],
         type: "valuation",
         capital_flow_kind: "new_capital",
+        operation_id: null,
+      }),
+    ).toBe("unsupported");
+  });
+
+  it("does not allow individual deletion of reallocation movements", () => {
+    expect(
+      getMovementDeletionMode({
+        ...movements[0],
+        type: "withdrawal",
+        withdrawal_kind: "capital",
+        capital_flow_kind: "reallocation",
+        operation_id: "operation-1",
       }),
     ).toBe("unsupported");
   });

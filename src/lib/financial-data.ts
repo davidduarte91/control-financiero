@@ -159,19 +159,22 @@ export async function registerNewCapital(
   return data;
 }
 
-export async function createWithdrawal(
-  input: Omit<CreateMovementInput, "type" | "withdrawal_kind"> & {
-    withdrawal_kind: "return";
-  },
+export async function withdrawInvestmentReturn(
+  input: Pick<
+    CreateMovementInput,
+    "investment" | "account" | "currency" | "amount" | "occurred_at" | "note"
+  >,
 ): Promise<FinancialMovement> {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
-    .from("financial_movements")
-    .insert({
-      ...input,
-      type: "withdrawal",
+    .rpc("withdraw_investment_return", {
+      p_investment: input.investment,
+      p_account: input.account,
+      p_currency: input.currency,
+      p_amount: input.amount,
+      p_occurred_at: input.occurred_at,
+      p_note: input.note,
     })
-    .select("*")
     .single<FinancialMovement>();
 
   if (error) {

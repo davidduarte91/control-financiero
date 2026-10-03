@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { getEnvelopeById } from "@/lib/envelope-data";
 import {
   createValuation,
-  createWithdrawal,
   deleteFinancialMovement,
   getFinancialMovementById,
   getFinancialMovements,
@@ -15,6 +14,7 @@ import {
   revertNewCapital,
   updateFinancialMovement,
   withdrawObjectiveCapital,
+  withdrawInvestmentReturn,
   type CreateMovementInput,
 } from "@/lib/financial-data";
 import type { FinancialMovement } from "@/lib/financial-types";
@@ -292,9 +292,13 @@ async function createMovementAction(
         note: normalizedInput.note,
       });
     } else if (type === "withdrawal") {
-      await createWithdrawal({
-        ...normalizedInput,
-        withdrawal_kind: "return",
+      await withdrawInvestmentReturn({
+        investment: normalizedInput.investment,
+        account: normalizedInput.account,
+        currency: normalizedInput.currency,
+        amount: normalizedInput.amount,
+        occurred_at: normalizedInput.occurred_at,
+        note: normalizedInput.note,
       });
     } else {
       await createValuation(normalizedInput);

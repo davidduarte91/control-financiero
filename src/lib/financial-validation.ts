@@ -38,6 +38,10 @@ export const WITHDRAWAL_EXCEEDS_RETURN_ERROR =
   "No podés retirar más que el rendimiento disponible de esta posición.";
 export const CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR =
   "Para retirar capital del objetivo, usá la acción “Retirar capital”.";
+export const SENSITIVE_HISTORICAL_CAPITAL_MOVEMENT_ERROR =
+  "Los movimientos históricos que afectan capital no se pueden editar ni eliminar directamente.";
+export const SENSITIVE_HISTORICAL_CAPITAL_CREATION_ERROR =
+  "No se puede convertir un movimiento en un movimiento histórico que afecta capital.";
 
 export function validateNewWithdrawalKind(
   withdrawalKind: WithdrawalKind | null,
@@ -144,9 +148,24 @@ export type MovementDeletionMode =
   | "revert-new-capital"
   | "unsupported";
 
+export function isSensitiveHistoricalCapitalMovement(
+  movement: FinancialMovement,
+): boolean {
+  return (
+    movement.capital_flow_kind === null &&
+    (movement.type === "contribution" ||
+      (movement.type === "withdrawal" &&
+        movement.withdrawal_kind !== "return"))
+  );
+}
+
 export function getMovementDeletionMode(
   movement: FinancialMovement,
 ): MovementDeletionMode {
+  if (isSensitiveHistoricalCapitalMovement(movement)) {
+    return "unsupported";
+  }
+
   if (movement.capital_flow_kind === null) {
     return "delete-history";
   }
@@ -164,6 +183,10 @@ export function getMovementDeletionMode(
 export function getMovementEditError(
   movement: FinancialMovement,
 ): string | null {
+  if (isSensitiveHistoricalCapitalMovement(movement)) {
+    return SENSITIVE_HISTORICAL_CAPITAL_MOVEMENT_ERROR;
+  }
+
   if (movement.capital_flow_kind === null) {
     return null;
   }
@@ -179,21 +202,31 @@ export function getMovementEditError(
   return "Las redistribuciones no se pueden editar individualmente.";
 }
 
-export function validateCapitalWithdrawalUpdate(
+export function getMovementUpdateError(
   originalMovement: FinancialMovement,
   nextType: FinancialMovement["type"],
   nextWithdrawalKind: FinancialMovement["withdrawal_kind"],
 ): string | null {
+  const editError = getMovementEditError(originalMovement);
+
+  if (editError) {
+    return editError;
+  }
+
+  const nextMovement = {
+    ...originalMovement,
+    type: nextType,
+    withdrawal_kind:
+      nextType === "withdrawal" ? nextWithdrawalKind : null,
+  };
+
   if (
-    nextType === "withdrawal" &&
-    nextWithdrawalKind === "capital" &&
-    !(
-      originalMovement.type === "withdrawal" &&
-      originalMovement.withdrawal_kind === "capital" &&
-      originalMovement.capital_flow_kind === null
-    )
+    isSensitiveHistoricalCapitalMovement(nextMovement) &&
+    !isSensitiveHistoricalCapitalMovement(originalMovement)
   ) {
-    return CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR;
+    return nextType === "withdrawal"
+      ? CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR
+      : SENSITIVE_HISTORICAL_CAPITAL_CREATION_ERROR;
   }
 
   return null;

@@ -6,8 +6,11 @@ import {
   CAPITAL_WITHDRAWAL_REQUIRES_ENVELOPE_ERROR,
   getMovementDeletionMode,
   getMovementEditError,
+  getMovementUpdateError,
+  isSensitiveHistoricalCapitalMovement,
   RETURN_WITHDRAWAL_REQUIRES_NO_ENVELOPE_ERROR,
-  validateCapitalWithdrawalUpdate,
+  SENSITIVE_HISTORICAL_CAPITAL_MOVEMENT_ERROR,
+  SENSITIVE_HISTORICAL_CAPITAL_CREATION_ERROR,
   validateReallocateCapitalInput,
   validateNewWithdrawalKind,
   validateWithdrawObjectiveCapitalInput,
@@ -100,35 +103,37 @@ describe("validateNewWithdrawalKind", () => {
   });
 });
 
-describe("validateCapitalWithdrawalUpdate", () => {
-  it("rejects changing another historical movement into a legacy capital withdrawal", () => {
-    expect(
-      validateCapitalWithdrawalUpdate(
-        movements[0],
-        "withdrawal",
-        "capital",
-      ),
-    ).toBe(CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR);
+describe("isSensitiveHistoricalCapitalMovement", () => {
+  it("classifies historical contributions as sensitive", () => {
+    expect(isSensitiveHistoricalCapitalMovement(movements[0])).toBe(true);
   });
 
-  it("allows editing an existing historical capital withdrawal", () => {
-    expect(
-      validateCapitalWithdrawalUpdate(
-        movements[2],
-        "withdrawal",
-        "capital",
-      ),
-    ).toBeNull();
+  it("classifies historical capital withdrawals as sensitive", () => {
+    expect(isSensitiveHistoricalCapitalMovement(movements[2])).toBe(true);
   });
 
-  it("allows historical return withdrawals", () => {
+  it("classifies withdrawals with a null kind as sensitive", () => {
     expect(
-      validateCapitalWithdrawalUpdate(
-        movements[0],
-        "withdrawal",
-        "return",
+      isSensitiveHistoricalCapitalMovement({
+        ...movements[2],
+        withdrawal_kind: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not classify returns, valuations, or marked flows as sensitive", () => {
+    expect(
+      isSensitiveHistoricalCapitalMovement(
+        movement("return", "withdrawal", 100, "2026-01-05", null, "return"),
       ),
-    ).toBeNull();
+    ).toBe(false);
+    expect(isSensitiveHistoricalCapitalMovement(movements[3])).toBe(false);
+    expect(
+      isSensitiveHistoricalCapitalMovement({
+        ...movements[0],
+        capital_flow_kind: "new_capital",
+      }),
+    ).toBe(false);
   });
 });
 
@@ -216,8 +221,32 @@ describe("validateReallocateCapitalInput", () => {
 });
 
 describe("getMovementDeletionMode", () => {
-  it("keeps generic deletion for historical movements", () => {
-    expect(getMovementDeletionMode(movements[0])).toBe("delete-history");
+  it("blocks deletion of historical contributions", () => {
+    expect(getMovementDeletionMode(movements[0])).toBe("unsupported");
+  });
+
+  it("blocks deletion of historical capital withdrawals", () => {
+    expect(getMovementDeletionMode(movements[2])).toBe("unsupported");
+  });
+
+  it("blocks deletion of historical withdrawals with a null kind", () => {
+    expect(
+      getMovementDeletionMode({ ...movements[2], withdrawal_kind: null }),
+    ).toBe("unsupported");
+  });
+
+  it("keeps deletion available for historical returns and valuations", () => {
+    const historicalReturn = movement(
+      "return",
+      "withdrawal",
+      100,
+      "2026-01-05",
+      null,
+      "return",
+    );
+
+    expect(getMovementDeletionMode(historicalReturn)).toBe("delete-history");
+    expect(getMovementDeletionMode(movements[3])).toBe("delete-history");
   });
 
   it("routes new capital contributions through reversal", () => {
@@ -267,22 +296,124 @@ describe("getMovementDeletionMode", () => {
 });
 
 describe("getMovementEditError", () => {
-  it("prevents individual editing of objective exits", () => {
-    expect(
-      getMovementEditError({
-        ...movements[0],
-        type: "withdrawal",
-        withdrawal_kind: "capital",
-        capital_flow_kind: "objective_exit",
-        operation_id: null,
-      }),
-    ).toBe(
-      "Las salidas definitivas no se pueden editar; requieren una reversión específica.",
+  it.each([
+    ["historical contribution", movements[0]],
+    ["historical capital withdrawal", movements[2]],
+    [
+      "historical withdrawal with a null kind",
+      { ...movements[2], withdrawal_kind: null },
+    ],
+  ])("prevents editing a %s", (_label, historicalMovement) => {
+    expect(getMovementEditError(historicalMovement)).toBe(
+      SENSITIVE_HISTORICAL_CAPITAL_MOVEMENT_ERROR,
     );
   });
 
-  it("allows editing historical movements", () => {
-    expect(getMovementEditError(movements[0])).toBeNull();
+  it.each([
+    [
+      "new capital",
+      {
+        ...movements[0],
+        capital_flow_kind: "new_capital" as const,
+      },
+      "Los aportes de nuevo capital no se pueden editar; deben revertirse.",
+    ],
+    [
+      "reallocation",
+      {
+        ...movements[2],
+        capital_flow_kind: "reallocation" as const,
+        operation_id: "operation-1",
+      },
+      "Las redistribuciones no se pueden editar individualmente.",
+    ],
+    [
+      "objective exit",
+      {
+        ...movements[2],
+        capital_flow_kind: "objective_exit" as const,
+      },
+      "Las salidas definitivas no se pueden editar; requieren una reversión específica.",
+    ],
+  ])("keeps %s protected from individual editing", (_label, marked, error) => {
+    expect(getMovementEditError(marked)).toBe(error);
+  });
+
+  it("allows editing historical returns and valuations", () => {
+    const historicalReturn = movement(
+      "return",
+      "withdrawal",
+      100,
+      "2026-01-05",
+      null,
+      "return",
+    );
+
+    expect(getMovementEditError(historicalReturn)).toBeNull();
+    expect(getMovementEditError(movements[3])).toBeNull();
+  });
+});
+
+describe("getMovementUpdateError", () => {
+  it("rejects changing a valuation into a historical contribution", () => {
+    expect(
+      getMovementUpdateError(movements[3], "contribution", null),
+    ).toBe(SENSITIVE_HISTORICAL_CAPITAL_CREATION_ERROR);
+  });
+
+  it("rejects changing a return into a historical contribution", () => {
+    const historicalReturn = movement(
+      "return",
+      "withdrawal",
+      100,
+      "2026-01-05",
+      null,
+      "return",
+    );
+
+    expect(
+      getMovementUpdateError(historicalReturn, "contribution", null),
+    ).toBe(SENSITIVE_HISTORICAL_CAPITAL_CREATION_ERROR);
+  });
+
+  it("rejects changing a valuation or return into a capital withdrawal", () => {
+    const historicalReturn = movement(
+      "return",
+      "withdrawal",
+      100,
+      "2026-01-05",
+      null,
+      "return",
+    );
+
+    expect(
+      getMovementUpdateError(movements[3], "withdrawal", "capital"),
+    ).toBe(CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR);
+    expect(
+      getMovementUpdateError(historicalReturn, "withdrawal", "capital"),
+    ).toBe(CAPITAL_WITHDRAWAL_REQUIRES_OBJECTIVE_EXIT_ERROR);
+  });
+
+  it("allows changes that remain returns or valuations", () => {
+    const historicalReturn = movement(
+      "return",
+      "withdrawal",
+      100,
+      "2026-01-05",
+      null,
+      "return",
+    );
+
+    expect(
+      getMovementUpdateError(historicalReturn, "withdrawal", "return"),
+    ).toBeNull();
+    expect(getMovementUpdateError(movements[3], "valuation", null)).toBeNull();
+  });
+
+  it("rejects editing a historical capital movement before considering its target", () => {
+    expect(
+      getMovementUpdateError(movements[0], "valuation", null),
+    ).toBe(SENSITIVE_HISTORICAL_CAPITAL_MOVEMENT_ERROR);
   });
 });
 

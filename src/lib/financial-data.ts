@@ -5,6 +5,10 @@ import type {
   ReallocateCapitalInput,
   WithdrawObjectiveCapitalInput,
 } from "./financial-types";
+import {
+  getMovementDeletionMode,
+  getMovementUpdateError,
+} from "./financial-validation";
 import { getSupabaseServerClient } from "./supabase-server";
 
 export interface CreateMovementInput {
@@ -198,12 +202,28 @@ export async function createValuation(
 }
 
 export async function deleteFinancialMovement(id: string): Promise<void> {
+  const movement = await getFinancialMovementById(id);
+
+  if (!movement || getMovementDeletionMode(movement) !== "delete-history") {
+    throw new Error(
+      "El movimiento no existe o requiere una reversión específica.",
+    );
+  }
+
   const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("financial_movements")
     .delete()
     .eq("id", id)
     .is("capital_flow_kind", null)
+    .eq("type", movement.type);
+
+  query =
+    movement.withdrawal_kind === null
+      ? query.is("withdrawal_kind", null)
+      : query.eq("withdrawal_kind", movement.withdrawal_kind);
+
+  const { data, error } = await query
     .select("id")
     .maybeSingle<{ id: string }>();
 
@@ -239,16 +259,47 @@ export async function updateFinancialMovement(
   id: string,
   input: CreateMovementInput,
 ): Promise<FinancialMovement> {
+  const movement = await getFinancialMovementById(id);
+
+  if (!movement) {
+    throw new Error("El movimiento no existe.");
+  }
+
+  const updateError = getMovementUpdateError(
+    movement,
+    input.type,
+    input.withdrawal_kind,
+  );
+
+  if (updateError) {
+    throw new Error(updateError);
+  }
+
   const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("financial_movements")
     .update(input)
     .eq("id", id)
+    .eq("type", movement.type)
+    .is("capital_flow_kind", null);
+
+  query =
+    movement.withdrawal_kind === null
+      ? query.is("withdrawal_kind", null)
+      : query.eq("withdrawal_kind", movement.withdrawal_kind);
+
+  const { data, error } = await query
     .select("*")
-    .single<FinancialMovement>();
+    .maybeSingle<FinancialMovement>();
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error(
+      "El movimiento cambió y no se pudo actualizar. Actualizá la página e intentá de nuevo.",
+    );
   }
 
   return data;

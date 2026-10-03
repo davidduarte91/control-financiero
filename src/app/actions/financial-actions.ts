@@ -22,8 +22,7 @@ import {
   getMovementDeletionMode,
   validateNewWithdrawalKind,
   validateReallocateCapitalInput,
-  validateCapitalWithdrawalUpdate,
-  getMovementEditError,
+  getMovementUpdateError,
   validateWithdrawObjectiveCapitalInput,
   validateWithdrawalAmount,
 } from "@/lib/financial-validation";
@@ -351,20 +350,14 @@ export async function updateMovementAction(
       throw new Error("El movimiento no existe.");
     }
 
-    const movementEditError = getMovementEditError(originalMovement);
-
-    if (movementEditError) {
-      throw new Error(movementEditError);
-    }
-
-    const capitalWithdrawalUpdateError = validateCapitalWithdrawalUpdate(
+    const movementUpdateError = getMovementUpdateError(
       originalMovement,
       input.type,
       input.withdrawal_kind,
     );
 
-    if (capitalWithdrawalUpdateError) {
-      throw new Error(capitalWithdrawalUpdateError);
+    if (movementUpdateError) {
+      throw new Error(movementUpdateError);
     }
 
     const withdrawalKind = validated.input.withdrawal_kind;

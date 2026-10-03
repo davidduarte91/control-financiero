@@ -18,7 +18,10 @@ import {
   groupMovementsForHistory,
   historyItemMatchesType,
 } from "@/lib/movement-history";
-import { validateWithdrawalAmount } from "@/lib/financial-validation";
+import {
+  isSensitiveHistoricalCapitalMovement,
+  validateWithdrawalAmount,
+} from "@/lib/financial-validation";
 
 type MovementFilter = "all" | FinancialMovement["type"];
 
@@ -553,30 +556,36 @@ export function MovementHistory({ movements, envelopes }: MovementHistoryProps) 
                       {movement.currency}
                     </p>
                     <div className="mt-2 flex items-center justify-end gap-2 border-t border-surface-highest/30 pt-2">
-                      {movement.capital_flow_kind === null && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingId(movement.id);
-                              setEditingType(movement.type);
-                              setEditingWithdrawalKind(
-                                movement.withdrawal_kind ?? "capital",
-                              );
-                              setEditingCurrency(movement.currency);
-                              setError(null);
-                            }}
-                            className="text-[11px] font-semibold text-on-surface-muted transition hover:text-on-surface"
-                          >
-                            Editar
-                          </button>
-                          <span
-                            aria-hidden="true"
-                            className="text-surface-highest"
-                          >
-                            ·
-                          </span>
-                        </>
+                      {movement.capital_flow_kind === null &&
+                        !isSensitiveHistoricalCapitalMovement(movement) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(movement.id);
+                                setEditingType(movement.type);
+                                setEditingWithdrawalKind(
+                                  movement.withdrawal_kind ?? "capital",
+                                );
+                                setEditingCurrency(movement.currency);
+                                setError(null);
+                              }}
+                              className="text-[11px] font-semibold text-on-surface-muted transition hover:text-on-surface"
+                            >
+                              Editar
+                            </button>
+                            <span
+                              aria-hidden="true"
+                              className="text-surface-highest"
+                            >
+                              ·
+                            </span>
+                          </>
+                        )}
+                      {isSensitiveHistoricalCapitalMovement(movement) && (
+                        <span className="text-[11px] font-medium text-on-surface-muted">
+                          Histórico protegido
+                        </span>
                       )}
                       {movement.capital_flow_kind === "new_capital" && (
                         <button

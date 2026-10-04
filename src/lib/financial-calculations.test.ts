@@ -294,6 +294,198 @@ describe("calculateCurrentValue", () => {
 
     expect(calculateCurrentValue(movementsWithMultipleValuations)).toBe(1_800);
   });
+
+  it("uses created_at to break a tie between valuations", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const olderValuation = {
+      ...createMovement("valuation-a", "valuation", 1_000, occurredAt),
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const newerValuation = {
+      ...createMovement("valuation-b", "valuation", 1_200, occurredAt),
+      created_at: "2026-01-02T10:32:00.000Z",
+    };
+
+    expect(calculateCurrentValue([newerValuation, olderValuation])).toBe(1_200);
+    expect(calculateCurrentValue([olderValuation, newerValuation])).toBe(1_200);
+  });
+
+  it("uses ordinal id order when valuation timestamps are equal", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const createdAt = "2026-01-02T10:31:00.000Z";
+    const lowerIdValuation = {
+      ...createMovement(
+        "00000000-0000-0000-0000-000000000001",
+        "valuation",
+        1_000,
+        occurredAt,
+      ),
+      created_at: createdAt,
+    };
+    const higherIdValuation = {
+      ...createMovement(
+        "00000000-0000-0000-0000-000000000002",
+        "valuation",
+        1_200,
+        occurredAt,
+      ),
+      created_at: createdAt,
+    };
+
+    expect(
+      calculateCurrentValue([higherIdValuation, lowerIdValuation]),
+    ).toBe(1_200);
+    expect(
+      calculateCurrentValue([lowerIdValuation, higherIdValuation]),
+    ).toBe(1_200);
+  });
+
+  it("adds a contribution created after a valuation at the same occurred_at", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const valuation = {
+      ...createMovement("valuation", "valuation", 1_000, occurredAt),
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const contribution = {
+      ...createMovement("contribution", "contribution", 100, occurredAt),
+      created_at: "2026-01-02T10:32:00.000Z",
+    };
+
+    expect(calculateCurrentValue([valuation, contribution])).toBe(1_100);
+  });
+
+  it("absorbs a contribution created before a valuation at the same occurred_at", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const contribution = {
+      ...createMovement("contribution", "contribution", 100, occurredAt),
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const valuation = {
+      ...createMovement("valuation", "valuation", 1_000, occurredAt),
+      created_at: "2026-01-02T10:32:00.000Z",
+    };
+
+    expect(calculateCurrentValue([valuation, contribution])).toBe(1_000);
+  });
+
+  it("subtracts a capital withdrawal created after a valuation at the same occurred_at", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const valuation = {
+      ...createMovement("valuation", "valuation", 1_000, occurredAt),
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const withdrawal = {
+      ...createMovement("withdrawal", "withdrawal", 100, occurredAt),
+      created_at: "2026-01-02T10:32:00.000Z",
+    };
+
+    expect(calculateCurrentValue([valuation, withdrawal])).toBe(900);
+  });
+
+  it("applies a return withdrawal created after a valuation at the same occurred_at", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const capital = createMovement(
+      "capital",
+      "contribution",
+      800,
+      "2026-01-01T10:30:00.000Z",
+    );
+    const valuation = {
+      ...createMovement("valuation", "valuation", 1_000, occurredAt),
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const withdrawal = {
+      ...createMovement("withdrawal", "withdrawal", 100, occurredAt),
+      withdrawal_kind: "return" as const,
+      created_at: "2026-01-02T10:32:00.000Z",
+    };
+    const tiedMovements = [capital, valuation, withdrawal];
+
+    expect(calculateCurrentValue(tiedMovements)).toBe(900);
+    expect(calculateReturn(tiedMovements)).toBe(100);
+  });
+
+  it("absorbs a backdated movement even when it was created after the valuation", () => {
+    const valuation = {
+      ...createMovement(
+        "valuation",
+        "valuation",
+        1_000,
+        "2026-01-02T10:30:00.000Z",
+      ),
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const backdatedContribution = {
+      ...createMovement(
+        "contribution",
+        "contribution",
+        100,
+        "2026-01-01T10:30:00.000Z",
+      ),
+      created_at: "2026-01-03T10:30:00.000Z",
+    };
+
+    expect(calculateCurrentValue([valuation, backdatedContribution])).toBe(1_000);
+  });
+
+  it("is independent of array order when movement timestamps are tied", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const tiedMovements = [
+      {
+        ...createMovement("valuation-a", "valuation", 1_000, occurredAt),
+        created_at: "2026-01-02T10:31:00.000Z",
+      },
+      {
+        ...createMovement("valuation-b", "valuation", 1_200, occurredAt),
+        created_at: "2026-01-02T10:32:00.000Z",
+      },
+      {
+        ...createMovement("contribution", "contribution", 100, occurredAt),
+        created_at: "2026-01-02T10:33:00.000Z",
+      },
+    ];
+
+    expect(calculateCurrentValue(tiedMovements)).toBe(1_300);
+    expect(calculateCurrentValue([...tiedMovements].reverse())).toBe(1_300);
+  });
+
+  it("keeps tied ARS and USD movements in separate positions", () => {
+    const occurredAt = "2026-01-02T10:30:00.000Z";
+    const arsValuation = {
+      ...createMovement("ars-valuation", "valuation", 1_000, occurredAt),
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const arsContribution = {
+      ...createMovement("ars-contribution", "contribution", 100, occurredAt),
+      created_at: "2026-01-02T10:32:00.000Z",
+    };
+    const usdValuation = {
+      ...createMovement("usd-valuation", "valuation", 200, occurredAt),
+      currency: "USD",
+      created_at: "2026-01-02T10:31:00.000Z",
+    };
+    const usdContribution = {
+      ...createMovement("usd-contribution", "contribution", 50, occurredAt),
+      currency: "USD",
+      created_at: "2026-01-02T10:32:00.000Z",
+    };
+    const positions = calculatePositions([
+      arsValuation,
+      arsContribution,
+      usdValuation,
+      usdContribution,
+    ]);
+
+    expect(
+      positions.map(({ currency, currentValue }) => ({
+        currency,
+        currentValue,
+      })),
+    ).toEqual([
+      { currency: "ARS", currentValue: 1_100 },
+      { currency: "USD", currentValue: 250 },
+    ]);
+  });
 });
 
 describe("returns", () => {

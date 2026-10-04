@@ -1,5 +1,34 @@
 import type { FinancialMovement } from "./financial-types";
 
+export function compareMovementOrder(
+  left: FinancialMovement,
+  right: FinancialMovement,
+): number {
+  const occurredAtDifference =
+    Date.parse(left.occurred_at) - Date.parse(right.occurred_at);
+
+  if (occurredAtDifference !== 0) {
+    return occurredAtDifference;
+  }
+
+  const createdAtDifference =
+    Date.parse(left.created_at) - Date.parse(right.created_at);
+
+  if (createdAtDifference !== 0) {
+    return createdAtDifference;
+  }
+
+  if (left.id < right.id) {
+    return -1;
+  }
+
+  if (left.id > right.id) {
+    return 1;
+  }
+
+  return 0;
+}
+
 export function calculateContributedCapital(
   movements: FinancialMovement[],
 ): number {
@@ -35,10 +64,7 @@ export function calculateCurrentValue(
   const latestValuation = movements
     .filter((movement) => movement.type === "valuation")
     .reduce<FinancialMovement | undefined>((latest, movement) => {
-      if (
-        !latest ||
-        Date.parse(movement.occurred_at) > Date.parse(latest.occurred_at)
-      ) {
+      if (!latest || compareMovementOrder(movement, latest) > 0) {
         return movement;
       }
 
@@ -49,10 +75,8 @@ export function calculateCurrentValue(
     return calculateRemainingCapital(movements);
   }
 
-  const latestValuationTime = Date.parse(latestValuation.occurred_at);
-
   return movements.reduce((currentValue, movement) => {
-    if (Date.parse(movement.occurred_at) <= latestValuationTime) {
+    if (compareMovementOrder(movement, latestValuation) <= 0) {
       return currentValue;
     }
 

@@ -90,6 +90,8 @@ export async function getFinancialMovements(): Promise<FinancialMovement[]> {
     .from("financial_movements")
     .select("*")
     .order("occurred_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .returns<FinancialMovement[]>();
 
   if (error) {

@@ -63,12 +63,12 @@ export function DashboardSummary({ summaries }: DashboardSummaryProps) {
                 <span className="h-px flex-1 bg-surface-highest/60" />
               </div>
 
-              <div className="grid grid-cols-4 gap-5">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 <article className="min-w-0 rounded-2xl border border-primary/30 bg-surface-container p-5 shadow-lg">
                   <p className="text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                     Capital restante
                   </p>
-                  <p className="mt-4 break-words font-mono text-2xl font-bold tracking-tight text-on-surface xl:text-3xl">
+                  <p className="mt-4 whitespace-nowrap font-mono text-xl font-bold tracking-tight text-on-surface lg:text-lg xl:text-xl 2xl:text-2xl">
                     {formatCurrency(
                       summary.remainingCapital,
                       summary.currency,
@@ -83,7 +83,7 @@ export function DashboardSummary({ summaries }: DashboardSummaryProps) {
                   <p className="text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
                     Valor actual
                   </p>
-                  <p className="mt-4 break-words font-mono text-2xl font-bold tracking-tight text-on-surface xl:text-3xl">
+                  <p className="mt-4 whitespace-nowrap font-mono text-xl font-bold tracking-tight text-on-surface lg:text-lg xl:text-xl 2xl:text-2xl">
                     {formatCurrency(summary.currentValue, summary.currency)}
                   </p>
                   <p className="mt-4 border-t border-surface-highest/50 pt-3 text-xs text-on-surface-muted">
@@ -96,7 +96,7 @@ export function DashboardSummary({ summaries }: DashboardSummaryProps) {
                     Rendimiento acumulado
                   </p>
                   <p
-                    className={`mt-4 break-words font-mono text-2xl font-bold tracking-tight xl:text-3xl ${returnTone}`}
+                    className={`mt-4 whitespace-nowrap font-mono text-xl font-bold tracking-tight lg:text-lg xl:text-xl 2xl:text-2xl ${returnTone}`}
                   >
                     {formatCurrency(summary.returnAmount, summary.currency)}
                   </p>
@@ -110,7 +110,7 @@ export function DashboardSummary({ summaries }: DashboardSummaryProps) {
                     Rendimiento %
                   </p>
                   <p
-                    className={`mt-4 break-words font-mono text-2xl font-bold tracking-tight xl:text-3xl ${percentageTone}`}
+                    className={`mt-4 whitespace-nowrap font-mono text-xl font-bold tracking-tight lg:text-lg xl:text-xl 2xl:text-2xl ${percentageTone}`}
                   >
                     {formatPercentage(summary.returnPercentage)}
                   </p>
